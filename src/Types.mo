@@ -21,6 +21,7 @@ module {
     #opt : ?CandidValue;
     #vector : [CandidValue];
     #record : [(CandidTag, CandidValue)];
+    #variant: [(CandidTag, CandidValue)]
     #func: CandidFunc;
     #service : CandidService;
     #principal : Principal;
@@ -74,6 +75,7 @@ module {
     #opt : ?CandidValue;
     #vector : [CandidValue];
     #record : [RecordProperty];
+    #variant: []
     #func: CandidFuncValue;
     #service : CandidServiceValue;
     #principal : Principal;
