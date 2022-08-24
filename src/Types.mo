@@ -1,3 +1,4 @@
+import FloatX "mo:xtendedNumbers/FloatX";
 
 module {
   public type CandidValue = {
@@ -11,44 +12,53 @@ module {
     #nat16 : Nat16;
     #nat32 : Nat32;
     #nat64 : Nat64;
-    #null;
+    #_null;
     #bool : Bool;
-    #float32 : Float; // TODO single precision. FloatX?
-    #float64 : Float;
+    #floatX : FloatX.FloatX;
     #text: Text;
     #reserved;
     #empty;
     #opt : ?CandidValue;
     #vector : [CandidValue];
-    #record : [(CandidTag, CandidValue)];
-    #variant: [(CandidTag, CandidValue)]
-    #func: CandidFunc;
+    #record : [{
+      tag: CandidTag;
+      value: CandidValue
+    }];
+    #variant: {
+      tag: CandidTag;
+      value: CandidValue
+    };
+    #_func: CandidFunc;
     #service : CandidService;
     #principal : Principal;
   };
 
   public type CandidTag = {
     value : Nat32;
-    label : ?Text;
+    _label : ?Text;
   };
 
+  public type CandidId = Text;
+
   public type CandidService = {
-    value: {
-      #opaque;
-      #transparent: Principal;
-    };
+    #opaque;
+    #transparent: Principal;
+  };
+
+  public type CandidServiceType = {
     methods: [(CandidId, CandidFunc)];
   };
 
   public type CandidFunc = {
-    value: {
-      #opaque;
-      #transparent: {
-        service: CandidServiceValue;
-        method: Text;
-      };
+    #opaque;
+    #transparent: {
+      service: CandidService;
+      method: Text;
     };
-    modes: [{#oneWay; #query}]; // TODO check the spec
+  };
+
+  public type CandidFuncType = {
+    modes: [{#oneWay; #_query}]; // TODO check the spec
     argTypes: [(?CandidId, CandidFunc)];
     returnTypes: [(?CandidId, CandidFunc)];
   };
@@ -65,7 +75,7 @@ module {
     #nat16;
     #nat32;
     #nat64;
-    #null;
+    #_null;
     #bool;
     #float32;
     #float64;
@@ -74,39 +84,39 @@ module {
     #empty;
     #opt : ?CandidValue;
     #vector : [CandidValue];
-    #record : [RecordProperty];
-    #variant: []
-    #func: CandidFuncValue;
-    #service : CandidServiceValue;
+    #record : [{}];
+    #variant: [{}];
+    #_func: CandidFunc;
+    #service : CandidService;
     #principal : Principal;
   };
 
 
 	public object CandidTypeCode
 	{
-		public let null = -1,
-		public let bool = -2,
-		public let nat = -3,
-		public let int = -4,
-		public let nat8 = -5,
-		public let nat16 = -6,
-		public let nat32 = -7,
-		public let nat64 = -8,
-		public let int8 = -9,
-		public let int16 = -10,
-		public let int32 = -11,
-		public let int64 = -12,
-		public let float32 = -13,
-		public let float64 = -14,
-		public let text = -15,
-		public let reserved = -16,
-		public let empty = -17,
-		public let opt = -18,
-		public let vector = -19,
-		public let record = -20,
-		public let variant = -21,
-		public let func = -22,
-		public let service = -23,
-		public let principal = -24,
-	}
+		public let _null = -1;
+		public let bool = -2;
+		public let nat = -3;
+		public let int = -4;
+		public let nat8 = -5;
+		public let nat16 = -6;
+		public let nat32 = -7;
+		public let nat64 = -8;
+		public let int8 = -9;
+		public let int16 = -10;
+		public let int32 = -11;
+		public let int64 = -12;
+		public let float32 = -13;
+		public let float64 = -14;
+		public let text = -15;
+		public let reserved = -16;
+		public let empty = -17;
+		public let opt = -18;
+		public let vector = -19;
+		public let record = -20;
+		public let variant = -21;
+		public let _func = -22;
+		public let service = -23;
+		public let principal = -24;
+	};
 }
