@@ -140,6 +140,15 @@ module {
     // nothing to encode
   };
 
+  public func encodePrincipal(buffer: Buffer.Buffer<Nat8>, value: Principal) {
+    // TODO opaque/null principal id? where bytes returned is [0x00]
+    let bytes: [Nat8] = Blob.toArray(Principal.toBlob(value));
+    let _ = NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
+    for (b in Iter.fromArray(bytes)) {
+      buffer.add(b); // Encode the raw principal bytes
+    };
+  };
+
   public func encodeOpt(buffer: Buffer.Buffer<Nat8>, value: ?CandidValue) {
     switch (value) {
       case (null) buffer.add(0x00); // Indicate there is no value
@@ -187,15 +196,6 @@ module {
         buffer.add(1); // 1 if not opaque
         encodePrincipal(buffer, principal); // Encode the service principal
       };
-    };
-  };
-
-  public func encodePrincipal(buffer: Buffer.Buffer<Nat8>, value: Principal) {
-    // TODO opaque/null principal id? where bytes returned is [0x00]
-    let bytes: [Nat8] = Blob.toArray(Principal.toBlob(value));
-    let _ = NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
-    for (b in Iter.fromArray(bytes)) {
-      buffer.add(b); // Encode the raw principal bytes
     };
   };
 

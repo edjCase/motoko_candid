@@ -82,13 +82,13 @@ module {
     #text;
     #reserved;
     #empty;
-    #opt : ?CandidValue;
-    #vector : [CandidValue];
-    #record : [{}];
-    #variant: [{}];
-    #_func: CandidFunc;
-    #service : CandidService;
-    #principal : Principal;
+    #principal;
+    #opt : CandidType;
+    #vector : CandidType;
+    #record : [{tag: CandidTag; _type: CandidType}];
+    #variant: [{tag: CandidTag; _type: CandidType}];
+    #_func: CandidFuncType;
+    #service : CandidServiceType;
   };
 
 
