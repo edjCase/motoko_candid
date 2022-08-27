@@ -26,14 +26,14 @@ module {
   type CandidFuncType = Types.CandidFuncType;
   type CandidServiceType = Types.CandidServiceType;
 
-  public func encode(value: CandidType) : [Nat8] {
+  public func encode(value : CandidType) : [Nat8] {
     let buffer = Buffer.Buffer<Nat8>(4);
     encodeToBuffer(buffer, value);
     buffer.toArray();
   };
 
-  public func encodeToBuffer(buffer: Buffer.Buffer<Nat8>, value: CandidType) {
-    switch(value) {
+  public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, value : CandidType) {
+    switch (value) {
       case (#int) encodeInt(buffer);
       case (#int8) encodeInt8(buffer);
       case (#int16) encodeInt16(buffer);
@@ -49,8 +49,10 @@ module {
       case (#float32) encodeFloat32(buffer);
       case (#float64) encodeFloat64(buffer);
       case (#text) encodeText(buffer);
-      case (#reserved) encodeReserved(buffer); // TODO allowed?
-      case (#empty) encodeEmpty(buffer); // TODO allowed?
+      case (#reserved) encodeReserved(buffer);
+      // TODO allowed?
+      case (#empty) encodeEmpty(buffer);
+      // TODO allowed?
       case (#principal) encodePrincipal(buffer);
       case (#opt(o)) encodeOpt(buffer, o);
       case (#vector(v)) encodeVector(buffer, v);
@@ -61,103 +63,115 @@ module {
     };
   };
 
-  public func encodeInt(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeInt(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.int);
   };
 
-  public func encodeInt8(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeInt8(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.int8);
   };
 
-  public func encodeInt16(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeInt16(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.int16);
   };
 
-  public func encodeInt32(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeInt32(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.int32);
   };
 
-  public func encodeInt64(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeInt64(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.int64);
   };
 
-  public func encodeNat(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeNat(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.nat);
   };
 
-  public func encodeNat8(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeNat8(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.nat8);
   };
 
-  public func encodeNat16(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeNat16(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.nat16);
   };
 
-  public func encodeNat32(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeNat32(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.nat32);
   };
 
-  public func encodeNat64(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeNat64(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.nat64);
   };
 
-  public func encodeNull(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeNull(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode._null);
   };
 
-  public func encodeBool(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeBool(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.bool);
   };
 
-  public func encodeFloat32(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeFloat32(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.float32);
   };
 
-  public func encodeFloat64(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeFloat64(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.float64);
   };
 
-  public func encodeText(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeText(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.text);
   };
 
-  public func encodeReserved(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeReserved(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.reserved);
   };
 
-  public func encodeEmpty(buffer: Buffer.Buffer<Nat8>) {
+  public func encodeEmpty(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.empty);
   };
 
-  public func encodePrincipal(buffer: Buffer.Buffer<Nat8>) {
+  public func encodePrincipal(buffer : Buffer.Buffer<Nat8>) {
     encodeCandidTypeCode(buffer, Types.CandidTypeCode.principal);
   };
 
-  public func encodeOpt(buffer: Buffer.Buffer<Nat8>, innerType: CandidType) { 
+  public func encodeOpt(buffer : Buffer.Buffer<Nat8>, innerType : CandidType) {
     // TODO compound
   };
 
-  public func encodeVector(buffer: Buffer.Buffer<Nat8>, innerType: CandidType) {
+  public func encodeVector(buffer : Buffer.Buffer<Nat8>, innerType : CandidType) {
     // TODO compound
   };
 
-  public func encodeRecord(buffer: Buffer.Buffer<Nat8>, fields: [{tag: CandidTag; _type: CandidType}]) {
+  public func encodeRecord(
+    buffer : Buffer.Buffer<Nat8>,
+    fields : [{ tag : CandidTag; _type : CandidType }],
+  ) {
     // TODO compound
   };
 
-  public func encodeFunc(buffer: Buffer.Buffer<Nat8>, value: CandidFuncType) {
+  public func encodeFunc(buffer : Buffer.Buffer<Nat8>, value : CandidFuncType) {
     // TODO compound
   };
 
-  public func encodeService(buffer: Buffer.Buffer<Nat8>, value: CandidServiceType) {
+  public func encodeService(
+    buffer : Buffer.Buffer<Nat8>,
+    value : CandidServiceType,
+  ) {
     // TODO compound
   };
 
-  public func encodeVariant(buffer: Buffer.Buffer<Nat8>, options: [{tag: CandidTag; _type: CandidType}]) {
+  public func encodeVariant(
+    buffer : Buffer.Buffer<Nat8>,
+    options : [{ tag : CandidTag; _type : CandidType }],
+  ) {
     // TODO compound
   };
 
-  private func encodeCandidTypeCode(buffer: Buffer.Buffer<Nat8>, typeCode: Int) {
+  private func encodeCandidTypeCode(
+    buffer : Buffer.Buffer<Nat8>,
+    typeCode : Int,
+  ) {
     let _ = IntX.encodeInt(buffer, typeCode, #signedLEB128);
   };
-}
+};
