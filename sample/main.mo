@@ -1,5 +1,4 @@
-import ValueEncoder "../src/ValueEncoder";
-import TypeEncoder "../src/TypeEncoder";
+import ArgEncoder "../src/ArgEncoder";
 
 actor Sample {
 

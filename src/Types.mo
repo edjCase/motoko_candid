@@ -57,6 +57,13 @@ module {
     };
   };
 
+  public type RecordFieldType = {
+    tag: CandidTag;
+    _type: CandidType;
+  };
+
+  public type VariantOptionType = RecordFieldType;
+
   public type CandidFuncType = {
     modes: [{#oneWay; #_query}]; // TODO check the spec
     argTypes: [(?CandidId, CandidFunc)];
@@ -85,8 +92,8 @@ module {
     #principal;
     #opt : CandidType;
     #vector : CandidType;
-    #record : [{tag: CandidTag; _type: CandidType}];
-    #variant: [{tag: CandidTag; _type: CandidType}];
+    #record : [RecordFieldType];
+    #variant: [VariantOptionType];
     #_func: CandidFuncType;
     #service : CandidServiceType;
   };
