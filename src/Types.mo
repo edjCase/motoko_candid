@@ -1,13 +1,11 @@
-import FloatX "mo:xtendedNumbers/FloatX";
-
 module {
 
-  type RecordFieldValue = {
+  public type RecordFieldValue = {
     tag: CandidTag;
     value: CandidValue;
   };
 
-  type VariantOptionValue = RecordFieldValue;
+  public type VariantOptionValue = RecordFieldValue;
 
   public type CandidValue = {
     #int : Int;
@@ -22,11 +20,12 @@ module {
     #nat64 : Nat64;
     #_null;
     #bool : Bool;
-    #floatX : FloatX.FloatX;
+    #float32 : Float;
+    #float64 : Float;
     #text : Text;
     #reserved;
     #empty;
-    #opt : ?CandidValue;
+    #opt : CandidValue;
     #vector : [CandidValue];
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;

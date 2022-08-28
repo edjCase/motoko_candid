@@ -46,7 +46,8 @@ module {
       case (#nat64(n64)) encodeNat64(buffer, n64);
       case (#_null) encodeNull(buffer);
       case (#bool(b)) encodeBool(buffer, b);
-      case (#floatX(f)) encodeFloatX(buffer, f);
+      case (#float32(f)) encodeFloat32(buffer, f);
+      case (#float64(f)) encodeFloat64(buffer, f);
       case (#text(t)) encodeText(buffer, t);
       case (#reserved) encodeReserved(buffer);
       // TODO allowed?
@@ -110,14 +111,6 @@ module {
     buffer.add(if (value) 0x01 else 0x00);
   };
 
-  public func encodeFloatX(buffer : Buffer.Buffer<Nat8>, value : FloatX.FloatX) {
-    if (value.precision == #f16) {
-      Debug.trap("Unable to encode 16 bit floats, only 32 and 64");
-      // TODO allow and convert?
-    };
-    FloatX.encodeFloatX(buffer, value, #lsb);
-  };
-
   public func encodeFloat32(buffer : Buffer.Buffer<Nat8>, value : Float) {
     let floatX : FloatX.FloatX = FloatX.floatToFloatX(value, #f32);
     FloatX.encodeFloatX(buffer, floatX, #lsb);
@@ -154,15 +147,12 @@ module {
     };
   };
 
-  public func encodeOpt(buffer : Buffer.Buffer<Nat8>, value : ?CandidValue) {
+  public func encodeOpt(buffer : Buffer.Buffer<Nat8>, value : CandidValue) {
     switch (value) {
-      case (null) buffer.add(0x00);
-      // Indicate there is no value
-      case (?v) {
-        buffer.add(0x01);
-        // Indicate there is a value
-        encodeToBuffer(buffer, v);
-        // Encode value
+      case (#_null) buffer.add(0x00); // Indicate there is no value
+      case (v) {
+        buffer.add(0x01); // Indicate there is a value
+        encodeToBuffer(buffer, v); // Encode value
       };
     };
   };
