@@ -1,6 +1,14 @@
 import FloatX "mo:xtendedNumbers/FloatX";
 
 module {
+
+  type RecordFieldValue = {
+    tag: CandidTag;
+    value: CandidValue;
+  };
+
+  type VariantOptionValue = RecordFieldValue;
+
   public type CandidValue = {
     #int : Int;
     #int8 : Int8;
@@ -20,16 +28,8 @@ module {
     #empty;
     #opt : ?CandidValue;
     #vector : [CandidValue];
-    #record : [
-      {
-        tag : CandidTag;
-        value : CandidValue;
-      },
-    ];
-    #variant : {
-      tag : CandidTag;
-      value : CandidValue;
-    };
+    #record : [RecordFieldValue];
+    #variant : VariantOptionValue;
     #_func : CandidFunc;
     #service : CandidService;
     #principal : Principal;
@@ -73,7 +73,7 @@ module {
     returnTypes : [(?CandidId, CandidFunc)];
   };
 
-  public type CandidType = {
+  public type PrimitiveType = {
     #int;
     #int8;
     #int16;
@@ -92,6 +92,9 @@ module {
     #reserved;
     #empty;
     #principal;
+  };
+
+  public type CompoundType = {
     #opt : CandidType;
     #vector : CandidType;
     #record : [RecordFieldType];
@@ -99,6 +102,8 @@ module {
     #_func : CandidFuncType;
     #service : CandidServiceType;
   };
+
+  public type CandidType = CompoundType or PrimitiveType;
 
   public object CandidTypeCode {
     public let _null = -1;
