@@ -24,64 +24,9 @@ module {
   type CompoundType = Types.CompoundType;
   type RecordFieldType = Types.RecordFieldType;
   type VariantOptionType = Types.VariantOptionType;
+  type CandidArg = Types.CandidArg;
+  type RecordFieldArg = Types.RecordFieldArg;
 
-  type RecordFieldArg = {
-    tag : CandidTag;
-    value : CandidArg;
-  };
-
-  type VariantOptionArg = RecordFieldArg;
-
-  type CandidServiceArg = {
-    value : {
-      #opaque;
-      #transparent : Principal;
-    };
-    methods : [(CandidId, Types.CandidFuncType)]; // TODO func in here?
-  };
-
-
-  type CandidArg = {
-    #int : Int;
-    #int8 : Int8;
-    #int16 : Int16;
-    #int32 : Int32;
-    #int64 : Int64;
-    #nat : Nat;
-    #nat8 : Nat8;
-    #nat16 : Nat16;
-    #nat32 : Nat32;
-    #nat64 : Nat64;
-    #_null;
-    #bool : Bool;
-    #float32 : Float;
-    #float64 : Float;
-    #text : Text;
-    #principal : Principal;
-    #reserved;
-    #empty;
-    #opt : CandidArg;
-    #vector : {
-      // TODO better way to reduce redundancy/enforce type and values match
-      _type : CandidType;
-      values : [CandidValue];
-    };
-    #record : [RecordFieldArg];
-    #variant : {
-      selectedOption : VariantOptionArg;
-      otherOptions : [VariantOptionType];
-    };
-    #_func : {
-      value : {
-        #opaque;
-        #transparent : {
-          service : CandidServiceArg;
-          method : Text;
-        };
-      };
-    };
-    #service : CandidServiceArg;
-  };
 
   public func encode(args : [CandidArg]) : Blob {
     let buffer = Buffer.Buffer<Nat8>(10);
