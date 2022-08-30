@@ -6,13 +6,13 @@ import Text "mo:base/Text";
 module {
 
   public type RecordFieldValue = {
-    tag: CandidTag;
-    value: CandidValue;
+    tag: Tag;
+    value: Value;
   };
 
   public type VariantOptionValue = RecordFieldValue;
 
-  public type CandidValue = {
+  public type Value = {
     #int : Int;
     #int8 : Int8;
     #int16 : Int16;
@@ -30,20 +30,20 @@ module {
     #text : Text;
     #reserved;
     #empty;
-    #opt : ?CandidValue;
-    #vector : [CandidValue];
+    #opt : ?Value;
+    #vector : [Value];
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;
-    #_func : CandidFunc;
-    #service : CandidService;
+    #_func : Func;
+    #service : Service;
     #principal : Principal;
   };
 
-  public type CandidTag = {
+  public type Tag = {
     #name : Text;
     #hash : Nat32;
   };
-  public func getTagHash(t : CandidTag) : Nat32 {
+  public func getTagHash(t : Tag) : Nat32 {
     switch (t) {
       case (#name(n)) hashTagName(n);
       case (#hash(h)) h;
@@ -58,37 +58,37 @@ module {
     });
   };
 
-  public type CandidId = Text;
+  public type Id = Text;
 
-  public type CandidService = {
+  public type Service = {
     #opaque;
     #transparent : Principal;
   };
 
-  public type CandidServiceType = {
-    methods : [(CandidId, CandidFunc)];
+  public type ServiceType = {
+    methods : [(Id, Func)];
   };
 
-  public type CandidFunc = {
+  public type Func = {
     #opaque;
     #transparent : {
-      service : CandidService;
+      service : Service;
       method : Text;
     };
   };
 
   public type RecordFieldType = {
-    tag : CandidTag;
-    _type : CandidType;
+    tag : Tag;
+    _type : TypeDef;
   };
 
   public type VariantOptionType = RecordFieldType;
 
-  public type CandidFuncType = {
+  public type FuncType = {
     modes : [{ #oneWay; #_query }];
     // TODO check the spec
-    argTypes : [(?CandidId, CandidFunc)];
-    returnTypes : [(?CandidId, CandidFunc)];
+    argTypes : [(?Id, Func)];
+    returnTypes : [(?Id, Func)];
   };
 
   public type PrimitiveType = {
@@ -113,78 +113,18 @@ module {
   };
 
   public type CompoundType = {
-    #opt : CandidType;
-    #vector : CandidType;
+    #opt : TypeDef;
+    #vector : TypeDef;
     #record : [RecordFieldType];
     #variant : [VariantOptionType];
-    #_func : CandidFuncType;
-    #service : CandidServiceType;
+    #_func : FuncType;
+    #service : ServiceType;
   };
 
-  public type CandidType = CompoundType or PrimitiveType;
-
-  public type RecordFieldArg = {
-    tag : CandidTag;
-    value : CandidArg;
-  };
-
-  public type VariantOptionArg = RecordFieldArg;
-
-  public type CandidServiceArg = {
-    value : {
-      #opaque;
-      #transparent : Principal;
-    };
-    methods : [(CandidId, CandidFuncType)]; // TODO func in here?
-  };
+  public type TypeDef = CompoundType or PrimitiveType;
 
 
-  public type CandidArg = {
-    #int : Int;
-    #int8 : Int8;
-    #int16 : Int16;
-    #int32 : Int32;
-    #int64 : Int64;
-    #nat : Nat;
-    #nat8 : Nat8;
-    #nat16 : Nat16;
-    #nat32 : Nat32;
-    #nat64 : Nat64;
-    #_null;
-    #bool : Bool;
-    #float32 : Float;
-    #float64 : Float;
-    #text : Text;
-    #principal : Principal;
-    #reserved;
-    #empty;
-    #opt : {
-      #novalue: CandidType;
-      #value: CandidArg;
-    };
-    #vector : {
-      // TODO better way to reduce redundancy/enforce type and values match
-      _type : CandidType;
-      values : [CandidValue];
-    };
-    #record : [RecordFieldArg];
-    #variant : {
-      selectedOption : VariantOptionArg;
-      otherOptions : [VariantOptionType];
-    };
-    #_func : {
-      value : {
-        #opaque;
-        #transparent : {
-          service : CandidServiceArg;
-          method : Text;
-        };
-      };
-    };
-    #service : CandidServiceArg;
-  };
-
-  public object CandidTypeCode {
+  public object TypeDefCode {
     public let _null = -1;
     public let bool = -2;
     public let nat = -3;
