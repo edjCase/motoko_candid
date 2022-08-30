@@ -1,3 +1,8 @@
+import Blob "mo:base/Blob";
+import Iter "mo:base/Array";
+import NatX "mo:xtendedNumbers/NatX";
+import Text "mo:base/Text";
+
 module {
 
   public type RecordFieldValue = {
@@ -35,8 +40,22 @@ module {
   };
 
   public type CandidTag = {
-    value : Nat32;
-    _label : ?Text;
+    #name : Text;
+    #hash : Nat32;
+  };
+  public func getTagHash(t : CandidTag) : Nat32 {
+    switch (t) {
+      case (#name(n)) hashTagName(n);
+      case (#hash(h)) h;
+    };
+  };
+
+  public func hashTagName(name : Text) : Nat32 {
+    // hash(name) = ( Sum_(i=0..k) utf8(name)[i] * 223^(k-i) ) mod 2^32 where k = |utf8(name)|-1
+    let bytes : [Nat8] = Blob.toArray(Text.encodeUtf8(name));
+    Iter.foldLeft<Nat8, Nat32>(bytes, 0, func (accum: Nat32, byte : Nat8) : Nat32 {
+      (accum *% 223) +% NatX.from8To32(byte);
+    });
   };
 
   public type CandidId = Text;

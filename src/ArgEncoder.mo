@@ -117,7 +117,7 @@ module {
       case (#record(r)) {
         let _ = IntX.encodeInt(buffer, r.size(), #signedLEB128); // Encode field count // TODO validate should be signed
         for (field in Iter.fromArray(r)) {
-          let _ = NatX.encodeNat(buffer, Nat32.toNat(field.tag.value), #unsignedLEB128); // Encode field tag
+          let _ = NatX.encodeNat(buffer, Nat32.toNat(Types.getTagHash(field.tag)), #unsignedLEB128); // Encode field tag
           let _ = IntX.encodeInt(buffer, field._type, #signedLEB128); // Encode reference index or type code
         };
       };
@@ -130,7 +130,7 @@ module {
       case (#variant(v)) {
         let _ = IntX.encodeInt(buffer, v.size(), #signedLEB128); // Encode option count // TODO validate should be signed
         for (option in Iter.fromArray(v)) {
-          let _ = NatX.encodeNat(buffer, Nat32.toNat(option.tag.value), #unsignedLEB128); // Encode option tag
+          let _ = NatX.encodeNat(buffer, Nat32.toNat(Types.getTagHash(option.tag)), #unsignedLEB128); // Encode option tag
           let _ = IntX.encodeInt(buffer, option._type, #signedLEB128); // Encode reference index or type code
         };
       };
@@ -322,7 +322,7 @@ module {
         var h = Int.hash(Types.CandidTypeCode.record);
         Array.foldLeft<RecordFieldReferenceType, Hash.Hash>(r, 0, func (h: Hash.Hash, f: RecordFieldReferenceType) : Hash.Hash {
           let innerHash = Int.hash(f._type);
-          combineHash(combineHash(h, f.tag.value), innerHash);
+          combineHash(combineHash(h, Types.getTagHash(f.tag)), innerHash);
         });
       };
       case (#_func(f)) {
@@ -339,7 +339,7 @@ module {
         var h = Int.hash(Types.CandidTypeCode.variant);
         Array.foldLeft<VariantOptionReferenceType, Hash.Hash>(v, 0, func (h: Hash.Hash, f: VariantOptionReferenceType) : Hash.Hash {
           let innerHash = Int.hash(f._type);
-          combineHash(combineHash(h, f.tag.value), innerHash);
+          combineHash(combineHash(h, Types.getTagHash(f.tag)), innerHash);
         });
       };
     };

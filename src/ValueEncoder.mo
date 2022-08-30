@@ -174,7 +174,7 @@ module {
     // Sort properties by the hash of the
     let sortedKVs : [{ tag : CandidTag; value : CandidValue }] = Array.sort<
       { tag : CandidTag; value : CandidValue },
-    >(value, func(v1, v2) { Nat32.compare(v1.tag.value, v2.tag.value) });
+    >(value, func(v1, v2) { Nat32.compare(Types.getTagHash(v1.tag), Types.getTagHash(v2.tag)) });
     for (kv in Iter.fromArray(sortedKVs)) {
       encodeToBuffer(buffer, kv.value);
       // Encode each value in order
@@ -213,14 +213,8 @@ module {
     };
   };
 
-  public func encodeVariant(
-    buffer : Buffer.Buffer<Nat8>,
-    tag : CandidTag,
-    value : CandidValue,
-  ) {
-    let _ = NatX.encodeNat(buffer, Nat32.toNat(tag.value), #unsignedLEB128);
-    // Encode tag value
-    encodeToBuffer(buffer, value);
-    // Encode value
+  public func encodeVariant(buffer : Buffer.Buffer<Nat8>, index : Nat, value : CandidValue) {
+    let _ = NatX.encodeNat(buffer, index, #unsignedLEB128); // Encode tag value
+    encodeToBuffer(buffer, value); // Encode value
   };
 };
