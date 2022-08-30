@@ -25,7 +25,7 @@ module {
     #text : Text;
     #reserved;
     #empty;
-    #opt : CandidValue;
+    #opt : ?CandidValue;
     #vector : [CandidValue];
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;
@@ -104,7 +104,6 @@ module {
 
   public type CandidType = CompoundType or PrimitiveType;
 
-
   public type RecordFieldArg = {
     tag : CandidTag;
     value : CandidArg;
@@ -140,7 +139,10 @@ module {
     #principal : Principal;
     #reserved;
     #empty;
-    #opt : CandidArg;
+    #opt : {
+      #novalue: CandidType;
+      #value: CandidArg;
+    };
     #vector : {
       // TODO better way to reduce redundancy/enforce type and values match
       _type : CandidType;

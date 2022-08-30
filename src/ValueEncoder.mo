@@ -123,6 +123,7 @@ module {
 
   public func encodeText(buffer : Buffer.Buffer<Nat8>, value : Text) {
     let utf8Bytes : Blob = Text.encodeUtf8(value);
+    let _ = IntX.encodeInt(buffer, utf8Bytes.size(), #signedLEB128); // TODO validate it is signed vs unsigned
     for (byte in utf8Bytes.vals()) {
       buffer.add(byte);
     };
@@ -147,10 +148,10 @@ module {
     };
   };
 
-  public func encodeOpt(buffer : Buffer.Buffer<Nat8>, value : CandidValue) {
+  public func encodeOpt(buffer : Buffer.Buffer<Nat8>, value : ?CandidValue) {
     switch (value) {
-      case (#_null) buffer.add(0x00); // Indicate there is no value
-      case (v) {
+      case (null) buffer.add(0x00); // Indicate there is no value
+      case (?v) {
         buffer.add(0x01); // Indicate there is a value
         encodeToBuffer(buffer, v); // Encode value
       };
