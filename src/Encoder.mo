@@ -27,6 +27,10 @@ module {
   type CompoundType = Types.CompoundType;
   type RecordFieldType = Types.RecordFieldType;
   type VariantOptionType = Types.VariantOptionType;
+  type ReferenceType = Types.ReferenceType;
+  type CompoundReferenceType = Types.CompoundReferenceType;
+  type RecordFieldReferenceType = Types.RecordFieldReferenceType;
+  type VariantOptionReferenceType = Types.VariantOptionReferenceType;
 
 
   public func encode(argTypes: [TypeDef], args : [Value]) : Blob {
@@ -180,23 +184,6 @@ module {
     };    
   };
 
-  type ReferenceType = Int;
-
-  type RecordFieldReferenceType = {
-    tag: Tag;
-    _type : ReferenceType;
-  };
-
-  type VariantOptionReferenceType = RecordFieldReferenceType;
-
-  type CompoundReferenceType = {
-    #opt : ReferenceType;
-    #vector : ReferenceType;
-    #record : [RecordFieldReferenceType];
-    #variant : [VariantOptionReferenceType];
-    #_func : ReferenceType; // TODO
-    #service : ReferenceType; // TODO
-  };
 
   private func addCompoundTypeToTable(t : CompoundType, table : TrieMap.TrieMap<CompoundReferenceType, Nat>, codes: Buffer.Buffer<Int>) : Nat {
     let refType : CompoundReferenceType = switch(t) {
@@ -216,14 +203,42 @@ module {
         #record(fields);
       };
       case (#_func(fn)) {
-        // TODO
-        // addTypeToTableInternal(fn, table, codes);
-        #opt(0);
+        let funcTypesToReference = func (t : Types.FuncArgs) : Types.FuncReferenceArgs {
+          switch(t){
+            case (#named(namedTypes)) {
+              let refTypeBuffer = Buffer.Buffer<(Id, ReferenceType)>(namedTypes.size());
+              for (t in Iter.fromArray(namedTypes)) {
+                let refType : ReferenceType = addTypeToTableInternal(t.1, table, codes, true);
+                refTypeBuffer.add((t.0, refType));
+              };
+              #named(refTypeBuffer.toArray());
+            };
+            case (#ordered(orderdTypes)) {
+              let refTypeBuffer = Buffer.Buffer<ReferenceType>(orderdTypes.size());
+              for (t in Iter.fromArray(orderdTypes)) {
+                let refType : ReferenceType = addTypeToTableInternal(t, table, codes, true);
+                refTypeBuffer.add(refType);
+              };
+              #ordered(refTypeBuffer.toArray());
+            };
+          };
+        };
+        let argTypes : Types.FuncReferenceArgs = funcTypesToReference(fn.argTypes);
+        let returnTypes : Types.FuncReferenceArgs = funcTypesToReference(fn.returnTypes);
+        #_func({
+          modes=fn.modes;
+          argTypes=argTypes;
+          returnTypes=returnTypes;
+        });
       };
       case (#service(s)) {
-        // TODO
-        // addTypeToTableInternal(s, table, codes);
-        #opt(0);
+        let methods : [(Id, ReferenceType)] = Array.map<(Id, Types.FuncType), (Id, ReferenceType)>(s.methods, func (a: (Id, Types.FuncType)) : (Id, ReferenceType) {
+          let refType : ReferenceType = addTypeToTableInternal(#_func(a.1), table, codes, true);
+          (a.0, refType);
+        });
+        #service({
+          methods=methods;
+        });
       };
       case (#variant(v)) {
         let options : [VariantOptionReferenceType] = Iter.toArray(Iter.map<VariantOptionType, VariantOptionReferenceType>(Iter.fromArray(v), func (f: VariantOptionType) : VariantOptionReferenceType {
@@ -263,16 +278,15 @@ module {
         combineHash(h, innerHash);
       };
       case (#record(r)) {
-        var h = Int.hash(Types.TypeDefCode.record);
-        Array.foldLeft<RecordFieldReferenceType, Hash.Hash>(r, 0, func (h: Hash.Hash, f: RecordFieldReferenceType) : Hash.Hash {
+        let h = Int.hash(Types.TypeDefCode.record);
+        Array.foldLeft<RecordFieldReferenceType, Hash.Hash>(r, h, func (v: Hash.Hash, f: RecordFieldReferenceType) : Hash.Hash {
           let innerHash = Int.hash(f._type);
-          combineHash(combineHash(h, Types.getTagHash(f.tag)), innerHash);
+          combineHash(combineHash(v, Types.getTagHash(f.tag)), innerHash);
         });
       };
       case (#_func(f)) {
         let h = Int.hash(Types.TypeDefCode._func);
         // TODO
-        1;
       };
       case (#service(s)) {
         let h = Int.hash(Types.TypeDefCode.service);

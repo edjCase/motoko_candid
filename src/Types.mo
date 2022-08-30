@@ -66,7 +66,7 @@ module {
   };
 
   public type ServiceType = {
-    methods : [(Id, Func)];
+    methods : [(Id, FuncType)];
   };
 
   public type Func = {
@@ -84,11 +84,16 @@ module {
 
   public type VariantOptionType = RecordFieldType;
 
+  public type FuncArgs = {
+    #ordered : [TypeDef];
+    #named : [(Id, TypeDef)];
+  };
+
   public type FuncType = {
     modes : [{ #oneWay; #_query }];
     // TODO check the spec
-    argTypes : [(?Id, Func)];
-    returnTypes : [(?Id, Func)];
+    argTypes : FuncArgs;
+    returnTypes : FuncArgs;
   };
 
   public type PrimitiveType = {
@@ -122,6 +127,43 @@ module {
   };
 
   public type TypeDef = CompoundType or PrimitiveType;
+
+
+  public type ReferenceType = Int;
+
+  public type RecordFieldReferenceType = {
+    tag: Tag;
+    _type : ReferenceType;
+  };
+
+  public type VariantOptionReferenceType = RecordFieldReferenceType;
+
+  public type FuncReferenceArgs = {
+    #ordered : [ReferenceType];
+    #named : [(Id, ReferenceType)];
+  };
+
+  public type FuncReferenceType = {
+    modes : [{ #oneWay; #_query }];
+    // TODO check the spec
+    argTypes : FuncReferenceArgs;
+    returnTypes : FuncReferenceArgs;
+  };
+
+
+
+  public type ServiceReferenceType = {
+    methods : [(Id, ReferenceType)];
+  };
+
+  public type CompoundReferenceType = {
+    #opt : ReferenceType;
+    #vector : ReferenceType;
+    #record : [RecordFieldReferenceType];
+    #variant : [VariantOptionReferenceType];
+    #_func : FuncReferenceType;
+    #service : ServiceReferenceType;
+  };
 
 
   public object TypeDefCode {
