@@ -1,4 +1,5 @@
 import Encoder "../src/Encoder";
+import Decoder "../src/Decoder";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Char "mo:base/Char";
@@ -168,8 +169,18 @@ module {
     let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([t], [arg]));
     if (not areEqual(bytes, actualBytes)) {
         Debug.trap("Failed.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
-    }
-    // TODO decode
+    };
+    let args : [(Types.Value, Types.TypeDef)] = Decoder.decode(Blob.fromArray(bytes));
+    if (args.size() != 1) {
+      Debug.trap(""); // TODO
+    };
+    let (actualValue: Types.Value, actualType: Types.TypeDef) = args[0];
+    if (t != actualType) {
+      Debug.trap(""); // TODO
+    };
+    if (arg != actualValue) {
+      Debug.trap(""); // TODO
+    };
   };
 
   private func areEqual(b1: [Nat8], b2: [Nat8]) : Bool {
