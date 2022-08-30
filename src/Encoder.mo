@@ -1,7 +1,8 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
+import Text "mo:base/Text";
+import Principal "mo:base/Principal";
 import FloatX "mo:xtendedNumbers/FloatX";
 import Hash "mo:base/Hash";
 import Int "mo:base/Int";
@@ -12,7 +13,7 @@ import Nat32 "mo:base/Nat32";
 import NatX "mo:xtendedNumbers/NatX";
 import TrieMap "mo:base/TrieMap";
 import Types "./Types";
-import ValueEncoder "./ValueEncoder";
+import Debug "mo:base/Debug";
 
 module {
 
@@ -53,17 +54,17 @@ module {
   private func encodeTypes(buffer : Buffer.Buffer<Nat8>, args : [CandidArg]) {
     let info : CompoundTypeTable = getTypeInfo(args);
 
-    let _ = NatX.encodeNat(buffer, info.compoundTypes.size(), #unsignedLEB128); // Encode compound type count
+    NatX.encodeNat(buffer, info.compoundTypes.size(), #unsignedLEB128); // Encode compound type count
 
     // Encode type table for compound types
     for (t in Iter.fromArray(info.compoundTypes)) {
       encodeType(buffer, t);
     };
 
-    let _ = IntX.encodeInt(buffer, info.typeCodes.size(), #signedLEB128);
+    IntX.encodeInt(buffer, info.typeCodes.size(), #signedLEB128);
     // Encode type count // TODO validate this is a SIGNED leb128, not unsigned
     for (code in Iter.fromArray(info.typeCodes)) {
-      let _ = IntX.encodeInt(buffer, code, #signedLEB128); // Encode each type
+      IntX.encodeInt(buffer, code, #signedLEB128); // Encode each type
     };
   };
 
@@ -105,20 +106,20 @@ module {
       case (#service(s)) Types.CandidTypeCode.service;
       case (#variant(v)) Types.CandidTypeCode.variant;
     };
-    let _ = IntX.encodeInt(buffer, typeCode, #signedLEB128);
+    IntX.encodeInt(buffer, typeCode, #signedLEB128);
     // Encode compound type code
     switch (t) {
       case (#opt(o)) {
-        let _ = IntX.encodeInt(buffer, o, #signedLEB128); // Encode reference index or type code
+        IntX.encodeInt(buffer, o, #signedLEB128); // Encode reference index or type code
       };
       case (#vector(v)) {
-        let _ = IntX.encodeInt(buffer, v, #signedLEB128); // Encode reference index or type code
+        IntX.encodeInt(buffer, v, #signedLEB128); // Encode reference index or type code
       };
       case (#record(r)) {
-        let _ = IntX.encodeInt(buffer, r.size(), #signedLEB128); // Encode field count // TODO validate should be signed
+        IntX.encodeInt(buffer, r.size(), #signedLEB128); // Encode field count // TODO validate should be signed
         for (field in Iter.fromArray(r)) {
-          let _ = NatX.encodeNat(buffer, Nat32.toNat(Types.getTagHash(field.tag)), #unsignedLEB128); // Encode field tag
-          let _ = IntX.encodeInt(buffer, field._type, #signedLEB128); // Encode reference index or type code
+          NatX.encodeNat(buffer, Nat32.toNat(Types.getTagHash(field.tag)), #unsignedLEB128); // Encode field tag
+          IntX.encodeInt(buffer, field._type, #signedLEB128); // Encode reference index or type code
         };
       };
       case (#_func(f)) {
@@ -128,10 +129,10 @@ module {
         // TODO
       };
       case (#variant(v)) {
-        let _ = IntX.encodeInt(buffer, v.size(), #signedLEB128); // Encode option count // TODO validate should be signed
+        IntX.encodeInt(buffer, v.size(), #signedLEB128); // Encode option count // TODO validate should be signed
         for (option in Iter.fromArray(v)) {
-          let _ = NatX.encodeNat(buffer, Nat32.toNat(Types.getTagHash(option.tag)), #unsignedLEB128); // Encode option tag
-          let _ = IntX.encodeInt(buffer, option._type, #signedLEB128); // Encode reference index or type code
+          NatX.encodeNat(buffer, Nat32.toNat(Types.getTagHash(option.tag)), #unsignedLEB128); // Encode option tag
+          IntX.encodeInt(buffer, option._type, #signedLEB128); // Encode reference index or type code
         };
       };
     };
@@ -353,7 +354,100 @@ module {
   private func encodeValues(buffer : Buffer.Buffer<Nat8>, args : [CandidArg]) {
     for (arg in Iter.fromArray(args)) {
       let v : CandidValue = getValueFromArg(arg);
-      ValueEncoder.encodeToBuffer(buffer, v);
+      encodeValue(buffer, v);
+    };
+  };
+
+  private func encodeValue(buffer : Buffer.Buffer<Nat8>, value : CandidValue, t : CandidType) {
+    switch (value) {
+      case (#int(i)) IntX.encodeInt(buffer, i, #signedLEB128);
+      case (#int8(i8)) IntX.encodeInt8(buffer, i8);
+      case (#int16(i16)) IntX.encodeInt16(buffer, i16, #lsb);
+      case (#int32(i32)) IntX.encodeInt32(buffer, i32, #lsb);
+      case (#int64(i64)) IntX.encodeInt64(buffer, i64, #lsb);
+      case (#nat(n)) NatX.encodeNat(buffer, n, #unsignedLEB128);
+      case (#nat8(n8)) NatX.encodeNat8(buffer, n8);
+      case (#nat16(n16)) NatX.encodeNat16(buffer, n16, #lsb);
+      case (#nat32(n32)) NatX.encodeNat32(buffer, n32, #lsb);
+      case (#nat64(n64)) NatX.encodeNat64(buffer, n64, #lsb);
+      case (#_null) {}; // Nothing to encode
+      case (#bool(b)) buffer.add(if (b) 0x01 else 0x00);
+      case (#float32(f)) {
+        let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f32);
+        FloatX.encodeFloatX(buffer, floatX, #lsb);
+      };
+      case (#float64(f)) {
+        let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f64);
+        FloatX.encodeFloatX(buffer, floatX, #lsb);
+      };
+      case (#text(t)) {
+        let utf8Bytes : Blob = Text.encodeUtf8(t);
+        IntX.encodeInt(buffer, utf8Bytes.size(), #signedLEB128); // TODO validate it is signed vs unsigned
+        for (byte in utf8Bytes.vals()) {
+          buffer.add(byte);
+        };
+      };
+      case (#reserved) {}; // Nothing to encode   TODO allowed?
+      case (#empty) {}; // Nothing to encode   TODO allowed?
+      case (#principal(p)) {
+        // TODO opaque/null principal id? where bytes returned is [0x00]
+        let bytes : [Nat8] = Blob.toArray(Principal.toBlob(p));
+        NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
+        for (b in Iter.fromArray(bytes)) {
+          buffer.add(b); // Encode the raw principal bytes
+        };
+      };
+      case (#opt(o)) {
+        switch (o) {
+          case (null) buffer.add(0x00); // Indicate there is no value
+          case (?v) {
+            buffer.add(0x01); // Indicate there is a value
+            encodeValue(buffer, v); // Encode value
+          };
+        };
+      };
+      case (#vector(ve)) {
+        NatX.encodeNat(buffer, ve.size(), #unsignedLEB128); // Encode the length of the vector
+        for (v in Iter.fromArray(ve)) {
+          encodeValue(buffer, v); // Encode each value
+        };
+      };
+      case (#record(r)) {
+        // Sort properties by the hash of the
+        let sortedKVs : [RecordFieldValue] = Array.sort<RecordFieldValue>(r, func(v1, v2) { Nat32.compare(Types.getTagHash(v1.tag), Types.getTagHash(v2.tag)) });
+        for (kv in Iter.fromArray(sortedKVs)) {
+          encodeValue(buffer, kv.value); // Encode each value in order
+        };
+      };
+      case (#_func(f)) {
+        switch (f) {
+          case (#opaque) {
+            buffer.add(0);
+            // 0 if opaque reference
+          };
+          case (#transparent(t)) {
+            buffer.add(1); // 1 if not opaque
+            encodeValue(buffer, #service(t.service)); // Encode the service
+            encodeValue(buffer, #text(t.method)); // Encode the method
+          };
+        };
+      };
+      case (#service(s)) {
+        switch (s) {
+          case (#opaque) {
+            buffer.add(0); // 0 if opaque reference
+          };
+          case (#transparent(principal)) {
+            buffer.add(1); // 1 if not opaque
+            encodeValue(buffer, #principal(principal)); // Encode the service principal
+          };
+        };
+      };
+      case (#variant(v)) {
+        let index : Nat = 0; // TODO
+        NatX.encodeNat(buffer, index, #unsignedLEB128); // Encode tag value
+        encodeValue(buffer, v); // Encode value
+      };
     };
   };
 

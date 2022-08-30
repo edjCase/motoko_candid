@@ -1,4 +1,4 @@
-import ArgEncoder "../src/ArgEncoder";
+import Encoder "../src/Encoder";
 
 actor Sample {
 

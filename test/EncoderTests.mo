@@ -1,4 +1,4 @@
-import ArgEncoder "../src/ArgEncoder";
+import Encoder "../src/Encoder";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Char "mo:base/Char";
@@ -158,7 +158,7 @@ module {
   };
 
   private func test(bytes: [Nat8], arg: Types.CandidArg) {
-    let actualBytes: [Nat8] = Blob.toArray(ArgEncoder.encode([arg]));
+    let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([arg]));
     if (not areEqual(bytes, actualBytes)) {
         Debug.trap("Failed.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
     }
