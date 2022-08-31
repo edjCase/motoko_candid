@@ -1,10 +1,13 @@
-import Encoder "../src/Encoder";
-import Decoder "../src/Decoder";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Char "mo:base/Char";
 import Debug "mo:base/Debug";
+import Decoder "../src/Decoder";
+import Encoder "../src/Encoder";
 import Iter "mo:base/Iter";
+import Bool "mo:base/Bool";
+import Nat "mo:base/Nat";
+import Float "mo:base/Float";
 import Nat8 "mo:base/Nat8";
 import Types "../src/Types";
 
@@ -168,18 +171,41 @@ module {
   private func test(bytes: [Nat8], t : Types.TypeDef, arg: Types.Value) {
     let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([t], [arg]));
     if (not areEqual(bytes, actualBytes)) {
-        Debug.trap("Failed.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
+        Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
     };
     let args : [(Types.Value, Types.TypeDef)] = Decoder.decode(Blob.fromArray(bytes));
     if (args.size() != 1) {
-      Debug.trap(""); // TODO
+      Debug.trap("Too many args: " # Nat.toText(args.size()));
     };
     let (actualValue: Types.Value, actualType: Types.TypeDef) = args[0];
     if (t != actualType) {
-      Debug.trap(""); // TODO
+      Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualType));
     };
-    if (arg != actualValue) {
-      Debug.trap(""); // TODO
+    let valueIsValid = switch (arg) {
+      case (#float32(f32)) floatsAreEqual(#float32(f32), actualValue);
+      case (#float64(f64)) floatsAreEqual(#float64(f64), actualValue);
+      case (a) a == actualValue;
+    };
+    if (not valueIsValid) {
+      Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualValue));
+    };
+  };
+
+  private func floatsAreEqual(f1: {#float32:Float; #float64:Float}, v2: Types.Value) : Bool {
+    switch(v2) {
+      case (#float32(f32_2)) {
+        switch (f1) {
+          case (#float32(f32_1)) Float.abs(f32_1 - f32_2) < 0.00001; // TODO epsilon
+          case (_) return false;
+        };
+      };
+      case (#float64(f64_2)) {
+        switch (f1) {
+          case (#float64(f64_1)) Float.abs(f64_1 - f64_2) < 0.00001; // TODO epsilon
+          case (_) return false;
+        };
+      };
+      case (_) return false;
     };
   };
 

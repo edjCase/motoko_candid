@@ -26,7 +26,7 @@ module {
 
   public func decode(candidBytes: Blob) : [(Value, TypeDef)] {
     switch (decodeInternal(candidBytes)) {
-      case (null) Debug.trap(""); // TODO or should do result?
+      case (null) Debug.trap("FFF"); // TODO or should do result?
       case (?r) r;
     }
   };
@@ -44,7 +44,9 @@ module {
         return null;
       };
       let (compoundTypes: [CompoundReferenceType], argTypes: [Int]) = decodeTypes(bytes)!;
-      let types : [TypeDef] = buildTypes(compoundTypes, argTypes);
+      Debug.print(debug_show(compoundTypes));
+      Debug.print(debug_show(argTypes));
+      let types : [TypeDef] = buildTypes(compoundTypes, argTypes)!;
       let values: [Value] = decodeValues(bytes, types)!;
       var i = 0;
       let valueTypes = Buffer.Buffer<(Value, TypeDef)>(types.size());
@@ -184,11 +186,151 @@ module {
     }
   };
 
-  private func buildTypes(compoundTypes: [CompoundReferenceType], argTypes: [Int]) : [TypeDef] {
-    [];
+  private func buildTypes(compoundTypes: [CompoundReferenceType], argTypes: [Int]) : ?[TypeDef] {
+    do ? {
+      let typeDefs = Buffer.Buffer<TypeDef>(argTypes.size());
+      for (argType in Iter.fromArray(argTypes)) {
+        let typeDef: TypeDef = buildType(argType, compoundTypes)!;
+        typeDefs.add(typeDef);
+      };
+      typeDefs.toArray();
+    }
+  };
+
+  private func buildType(indexOrCode: Int, compoundTypes: [CompoundReferenceType]) : ?TypeDef {
+    do ? {
+      switch (indexOrCode) {
+        case (-1) #_null;
+        case (-2) #bool;
+        case (-3) #nat;
+        case (-4) #int;
+        case (-5) #nat8;
+        case (-6) #nat16;
+        case (-7) #nat32;
+        case (-8) #nat64;
+        case (-9) #int8;
+        case (-10) #int16;
+        case (-11) #int32;
+        case (-12) #int64;
+        case (-13) #float32;
+        case (-14) #float64;
+        case (-15) #text;
+        case (-16) #reserved;
+        case (-17) #empty;
+        case (-24) #principal;
+        case (i) {
+          if (i < 0) {
+            return null; // Invalid, all negatives are listed
+          };
+          // Positives are indices for compound types
+          let index: Nat = Int.abs(indexOrCode);
+          let refType = compoundTypes[index];
+          switch (refType) {
+            case (#opt(o)) {
+              let inner: TypeDef = buildType(o, compoundTypes)!;
+              #opt(inner);
+            };
+            case (#vector(ve)) {
+              let inner: TypeDef = buildType(ve, compoundTypes)!;
+              #vector(inner);
+            };
+            case (#record(r)) {
+              let fields = Buffer.Buffer<Types.RecordFieldType>(r.size());
+              for (fieldRefType in Iter.fromArray(r)) {
+                let fieldType: TypeDef = buildType(fieldRefType._type, compoundTypes)!;
+                fields.add({tag=fieldRefType.tag; _type=fieldType});
+              };
+              #record(fields.toArray());
+            };
+            case (#variant(va)) {
+              let options = Buffer.Buffer<Types.VariantOptionType>(va.size());
+              for (optionRefType in Iter.fromArray(va)) {
+                let optionType: TypeDef = buildType(optionRefType._type, compoundTypes)!;
+                options.add({tag=optionRefType.tag; _type=optionType});
+              };
+              #variant(options.toArray());
+            };
+            case (#_func(f)) {
+              // TODO
+              #opt(#int);
+            };
+            case (#service(s)) {
+              // TODO
+              #opt(#int);
+            };
+          };
+        }
+      }
+    };
   };
   
   private func decodeTypes(bytes: Iter.Iter<Nat8>) : ?([CompoundReferenceType], [Int]) {
-    null;
+    do ? {
+      let compoundTypeLength: Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
+      let types = Buffer.Buffer<CompoundReferenceType>(compoundTypeLength);
+      for (i in Iter.range(0, compoundTypeLength - 1)) {
+        let t = decodeType(bytes)!;
+        types.add(t);
+      };
+      let codeLength = NatX.decodeNat(bytes, #unsignedLEB128)!;
+      let indicesOrCodes = Buffer.Buffer<Int>(codeLength);
+      for (i in Iter.range(0, codeLength - 1)) {
+        let indexOrCode: Int = IntX.decodeInt(bytes, #signedLEB128)!;
+        indicesOrCodes.add(indexOrCode);
+      };
+
+      (types.toArray(), indicesOrCodes.toArray());
+    }
+  };
+
+  private func decodeType(bytes: Iter.Iter<Nat8>) : ?Types.CompoundReferenceType {
+    do ? {
+      let typeCode: Int = IntX.decodeInt(bytes, #signedLEB128)!;
+      switch(typeCode) {
+        // opt
+        case (-18) { // TODO why cant use Types.TypeDef.opt here
+          let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
+          #opt(innerRef);
+        };
+        // vector
+        case (-19) {
+          let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
+          #vector(innerRef);
+        };
+        // record
+        case (-20) {
+          let fieldCount = NatX.decodeNat(bytes, #unsignedLEB128)!;
+          let fields = Buffer.Buffer<Types.RecordFieldReferenceType>(fieldCount);
+          for (i in Iter.range(0, fieldCount - 1)) {
+            let tag = Nat32.fromNat(NatX.decodeNat(bytes, #unsignedLEB128)!);
+            let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
+            fields.add({_type=innerRef; tag=#hash(tag)});
+          };
+          #record(fields.toArray());
+        };
+        // variant
+        case (-21) {
+          let optionCount = NatX.decodeNat(bytes, #unsignedLEB128)!;
+          let options = Buffer.Buffer<Types.VariantOptionReferenceType>(optionCount);
+          for (i in Iter.range(0, optionCount - 1)) {
+            let tag = Nat32.fromNat(NatX.decodeNat(bytes, #unsignedLEB128)!);
+            let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
+            options.add({_type=innerRef; tag=#hash(tag)});
+          };
+          #variant(options.toArray());
+        };
+        // func
+        case (-22) {
+          // TODO
+          #opt(0);
+        };
+        // service
+        case (-23) {
+          // TODO
+          #opt(0);
+        };
+        case (_) return null;
+      };
+    };
   };
 };
