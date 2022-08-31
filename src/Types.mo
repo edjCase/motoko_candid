@@ -2,6 +2,8 @@ import Blob "mo:base/Blob";
 import Iter "mo:base/Array";
 import NatX "mo:xtendedNumbers/NatX";
 import Text "mo:base/Text";
+import Order "mo:base/Order";
+import Nat32 "mo:base/Nat32";
 
 module {
 
@@ -35,8 +37,8 @@ module {
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;
     #_func : Func;
-    #service : Service;
-    #principal : Principal;
+    #service : PrincipalValue;
+    #principal : PrincipalValue;
   };
 
   public type Tag = {
@@ -50,6 +52,18 @@ module {
     };
   };
 
+  public func tagsAreEqual(t1: Tag, t2: Tag) : Bool {
+    tagCompare(t1, t2) == #equal;
+  };
+
+  public func tagCompare(t1: Tag, t2: Tag) : Order.Order {
+    Nat32.compare(getTagHash(t1), getTagHash(t2));
+  };
+
+  public func tagObjCompare(o1: {tag: Tag}, o2: {tag: Tag}) : Order.Order {
+    tagCompare(o1.tag, o2.tag);
+  };
+
   public func hashTagName(name : Text) : Nat32 {
     // hash(name) = ( Sum_(i=0..k) utf8(name)[i] * 223^(k-i) ) mod 2^32 where k = |utf8(name)|-1
     let bytes : [Nat8] = Blob.toArray(Text.encodeUtf8(name));
@@ -60,7 +74,7 @@ module {
 
   public type Id = Text;
 
-  public type Service = {
+  public type PrincipalValue = {
     #opaque;
     #transparent : Principal;
   };
@@ -72,7 +86,7 @@ module {
   public type Func = {
     #opaque;
     #transparent : {
-      service : Service;
+      service : PrincipalValue;
       method : Text;
     };
   };

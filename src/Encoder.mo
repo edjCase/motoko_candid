@@ -349,12 +349,19 @@ module {
       case (#reserved) {}; // Nothing to encode   TODO allowed?
       case (#empty) {}; // Nothing to encode   TODO allowed?
       case (#principal(p)) {
-        // TODO opaque/null principal id? where bytes returned is [0x00]
-        let bytes : [Nat8] = Blob.toArray(Principal.toBlob(p));
-        NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
-        for (b in Iter.fromArray(bytes)) {
-          buffer.add(b); // Encode the raw principal bytes
-        };
+        switch (p) {
+          case (#opaque) {
+            buffer.add(0x00); // 0 if opaque
+          };
+          case (#transparent(pr)) {
+            buffer.add(0x01); // 1 if transparent
+            let bytes : [Nat8] = Blob.toArray(Principal.toBlob(pr));
+            NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
+            for (b in Iter.fromArray(bytes)) {
+              buffer.add(b); // Encode the raw principal bytes
+            };
+          }
+        }
       };
       case (#opt(o)) {
         switch (o) {
@@ -383,12 +390,12 @@ module {
         let innerTypes : TrieMap.TrieMap<Tag, TypeDef> = switch(t) {
           case (#record(inner)) {
             let innerKV = Iter.fromArray(Array.map<RecordFieldType, (Tag, TypeDef)>(inner, func(i: RecordFieldType) : (Tag, TypeDef) { (i.tag, i._type) }));
-            TrieMap.fromEntries<Tag, TypeDef>(innerKV, tagEquals, Types.getTagHash);
+            TrieMap.fromEntries<Tag, TypeDef>(innerKV, Types.tagsAreEqual, Types.getTagHash);
           };
           case (_) Debug.trap("D"); // TODO
         };
         // Sort properties by the hash of the
-        let sortedKVs : [RecordFieldValue] = Array.sort<RecordFieldValue>(r, func (v1, v2) : Order.Order { tagCompare(v1.tag, v2.tag) });
+        let sortedKVs : [RecordFieldValue] = Array.sort<RecordFieldValue>(r, Types.tagObjCompare);
         
         for (kv in Iter.fromArray(sortedKVs)) {
           let innerType = switch(innerTypes.get(kv.tag)) {
@@ -424,7 +431,7 @@ module {
           };
           case (#transparent(principal)) {
             buffer.add(1); // 1 if not opaque
-            encodeValue(buffer, #principal(principal), #principal); // Encode the service principal
+            encodeValue(buffer, #principal(#transparent(principal)), #principal); // Encode the service principal
           };
         };
       };
@@ -433,7 +440,7 @@ module {
           case (#variant(inner)) inner;
           case (badT) Debug.trap("A" # debug_show(badT)); // TODO
         };
-        var typeIndex : ?Nat = firstIndexOf<VariantOptionType>(innerTypes, func (t) { tagEquals(t.tag, v.tag) });
+        var typeIndex : ?Nat = firstIndexOf<VariantOptionType>(innerTypes, func (t) { Types.tagsAreEqual(t.tag, v.tag) });
         switch(typeIndex) {
           case (?i) {
             NatX.encodeNat(buffer, i, #unsignedLEB128); // Encode tag value
@@ -454,13 +461,5 @@ module {
       i += 1;
     };
     return null;
-  };
-
-  private func tagEquals(t1: Tag, t2: Tag) : Bool {
-    tagCompare(t1, t2) == #equal;
-  };
-
-  private func tagCompare(t1: Tag, t2: Tag) : Order.Order {
-    Nat32.compare(Types.getTagHash(t1), Types.getTagHash(t2));
   };
 };
