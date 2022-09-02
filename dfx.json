@@ -8,7 +8,7 @@
     },
     "test": {
       "type": "motoko",
-      "main": "test/test.mo"
+      "main": "test/Tests.mo"
     }
   },
   "defaults": {

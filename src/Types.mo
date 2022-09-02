@@ -1,9 +1,12 @@
+import Array "mo:base/Array";
 import Blob "mo:base/Blob";
-import Iter "mo:base/Array";
-import NatX "mo:xtendedNumbers/NatX";
-import Text "mo:base/Text";
-import Order "mo:base/Order";
+import FloatX "mo:xtendedNumbers/FloatX";
+import Iter "mo:base/Iter";
+import Nat "mo:base/Blob";
 import Nat32 "mo:base/Nat32";
+import NatX "mo:xtendedNumbers/NatX";
+import Order "mo:base/Order";
+import Text "mo:base/Text";
 
 module {
 
@@ -41,6 +44,112 @@ module {
     #principal : PrincipalValue;
   };
 
+  public func valuesAreEqual(v1: Value, v2: Value): Bool {
+    switch (v1) {
+      case (#float32(f1)) {
+        let f2 = switch (v2) {
+          case(#float32(f2)) f2;
+          case(#float64(f2)) f2;
+          case (_) return false;
+        };
+        FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001);
+      };
+      case (#float64(f1)) {
+        let f2 = switch (v2) {
+          case(#float32(f2)) f2;
+          case(#float64(f2)) f2;
+          case (_) return false;
+        };
+        FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001);
+      };
+      case (#opt(o1)) {
+        let o2 = switch (v2) {
+          case(#opt(o2)) o2;
+          case (_) return false;
+        };
+        switch (o1) {
+          case (null) return o2 == null;
+          case (?o1) {
+            switch(o2) {
+              case (null) return false;
+              case (?o2) valuesAreEqual(o1, o2);
+            }
+          }
+        };
+      };
+      case (#vector(ve1)) {
+        let ve2 = switch (v2) {
+          case(#vector(ve)) ve;
+          case (_) return false;
+        };
+        if (ve1.size() != ve2.size()) {
+          return false;
+        };
+        for (i in Iter.range(0, ve1.size() - 1)) {
+          if (not valuesAreEqual(ve1[i], ve2[i])) {
+            return false;
+          };
+        };
+        true;
+      };
+      case (#record(r1)) {
+        let r2 = switch (v2) {
+          case(#record(r2)) r2;
+          case (_) return false;
+        };
+        if (r1.size() != r2.size()) {
+          return false;
+        };
+        let orderFunc = func (r1: RecordFieldValue, r2: RecordFieldValue) : Order.Order {
+          tagCompare(r1.tag, r2.tag)
+        };
+        let orderedR1 = Array.sort(r1, orderFunc);
+        let orderedR2 = Array.sort(r2, orderFunc);
+        for (i in Iter.range(0, orderedR1.size() - 1)) {
+          let r1I = orderedR1[i];
+          let r2I = orderedR2[i];
+          if (not tagsAreEqual(r1I.tag, r2I.tag)) {
+            return false;
+          };
+          if (not valuesAreEqual(r1I.value, r2I.value)) {
+            return false;
+          };
+        };
+        true;
+      };
+      case (#variant(va1)) {
+        let va2 = switch (v2) {
+          case(#variant(va2)) va2;
+          case (_) return false;
+        };
+        if (not tagsAreEqual(va1.tag, va2.tag)) {
+          return false;
+        };
+        if (not valuesAreEqual(va1.value, va2.value)) {
+          return false;
+        };
+        true;
+      };
+      case (#_func(f1)) {
+        let f2 = switch (v2) {
+          case(#_func(f2)) f2;
+          case (_) return false;
+        };
+        // TODO
+        f1 == f2;
+      };
+      case (#service(s1)) {
+        let s2 = switch (v2) {
+          case(#service(s2)) s2;
+          case (_) return false;
+        };
+        // TODO
+        s1 == s2;
+      };
+      case (a) a == v2;
+    };
+  };
+
   public type Tag = {
     #name : Text;
     #hash : Nat32;
@@ -67,7 +176,7 @@ module {
   public func hashTagName(name : Text) : Nat32 {
     // hash(name) = ( Sum_(i=0..k) utf8(name)[i] * 223^(k-i) ) mod 2^32 where k = |utf8(name)|-1
     let bytes : [Nat8] = Blob.toArray(Text.encodeUtf8(name));
-    Iter.foldLeft<Nat8, Nat32>(bytes, 0, func (accum: Nat32, byte : Nat8) : Nat32 {
+    Array.foldLeft<Nat8, Nat32>(bytes, 0, func (accum: Nat32, byte : Nat8) : Nat32 {
       (accum *% 223) +% NatX.from8To32(byte);
     });
   };
@@ -141,6 +250,94 @@ module {
   };
 
   public type TypeDef = CompoundType or PrimitiveType;
+
+
+
+  public func typesAreEqual(v1: TypeDef, v2: TypeDef): Bool {
+    switch (v1) {
+      case (#opt(o1)) {
+        let o2 = switch (v2) {
+          case(#opt(o2)) o2;
+          case (_) return false;
+        };
+        typesAreEqual(o1, o2);
+      };
+      case (#vector(ve1)) {
+        let ve2 = switch (v2) {
+          case(#vector(ve)) ve;
+          case (_) return false;
+        };
+        typesAreEqual(ve1, ve2);
+      };
+      case (#record(r1)) {
+        let r2 = switch (v2) {
+          case(#record(r2)) r2;
+          case (_) return false;
+        };
+        if (r1.size() != r2.size()) {
+          return false;
+        };
+        let orderFunc = func (r1: RecordFieldType, r2: RecordFieldType) : Order.Order {
+          tagCompare(r1.tag, r2.tag)
+        };
+        let orderedR1 = Array.sort(r1, orderFunc);
+        let orderedR2 = Array.sort(r2, orderFunc);
+        for (i in Iter.range(0, orderedR1.size() - 1)) {
+          let r1I = orderedR1[i];
+          let r2I = orderedR2[i];
+          if (not tagsAreEqual(r1I.tag, r2I.tag)) {
+            return false;
+          };
+          if (not typesAreEqual(r1I._type, r2I._type)) {
+            return false;
+          };
+        };
+        true;
+      };
+      case (#variant(va1)) {
+        let va2 = switch (v2) {
+          case(#variant(va2)) va2;
+          case (_) return false;
+        };
+        if (va1.size() != va2.size()) {
+          return false;
+        };
+        let orderFunc = func (t1: VariantOptionType, t2: VariantOptionType) : Order.Order {
+          tagCompare(t1.tag, t2.tag)
+        };
+        let orderedVa1 = Array.sort(va1, orderFunc);
+        let orderedVa2 = Array.sort(va2, orderFunc);
+        for (i in Iter.range(0, orderedVa1.size() - 1)) {
+          let va1I = orderedVa1[i];
+          let va2I = orderedVa2[i];
+          if (not tagsAreEqual(va1I.tag, va2I.tag)) {
+            return false;
+          };
+          if (not typesAreEqual(va1I._type, va2I._type)) {
+            return false;
+          };
+        };
+        true;
+      };
+      case (#_func(f1)) {
+        let f2 = switch (v2) {
+          case(#_func(f2)) f2;
+          case (_) return false;
+        };
+        // TODO
+        f1 == f2;
+      };
+      case (#service(s1)) {
+        let s2 = switch (v2) {
+          case(#service(s2)) s2;
+          case (_) return false;
+        };
+        // TODO
+        s1 == s2;
+      };
+      case (a) a == v2;
+    };
+  };
 
 
   public type ReferenceType = Int;

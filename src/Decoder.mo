@@ -24,14 +24,7 @@ module {
   type Tag = Types.Tag;
 
 
-  public func decode(candidBytes: Blob) : [(Value, TypeDef)] {
-    switch (decodeInternal(candidBytes)) {
-      case (null) Debug.trap("FFF"); // TODO or should do result?
-      case (?r) r;
-    }
-  };
-
-  private func decodeInternal(candidBytes: Blob) : ?[(Value, TypeDef)] {
+  public func decode(candidBytes: Blob) : ?[(Value, TypeDef)] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));
       let prefix1: Nat8 = bytes.next()!;
@@ -44,8 +37,6 @@ module {
         return null;
       };
       let (compoundTypes: [CompoundReferenceType], argTypes: [Int]) = decodeTypes(bytes)!;
-      Debug.print(debug_show(compoundTypes));
-      Debug.print(debug_show(argTypes));
       let types : [TypeDef] = buildTypes(compoundTypes, argTypes)!;
       let values: [Value] = decodeValues(bytes, types)!;
       var i = 0;
@@ -164,7 +155,7 @@ module {
         };
         case (#variant(v)) {
           let innerTypes: [Types.VariantOptionType] = switch (t) {
-            case (#record(vv)) Array.sort(vv, Types.tagObjCompare); // Order fields by tag
+            case (#variant(vv)) Array.sort(vv, Types.tagObjCompare); // Order fields by tag
             case (_) return null; // type definition doesnt match
           };
           let optionIndex = NatX.decodeNat(bytes, #unsignedLEB128)!; // Get index of option chosen

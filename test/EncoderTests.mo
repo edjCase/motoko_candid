@@ -80,7 +80,7 @@ module {
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x73, 0x10, 0x06, 0x9E, 0x3F], #float32, #float32(1.23456));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x73, 0xB7, 0xE6, 0xC0, 0xC7], #float32, #float32(-98765.4321));
 
-    // Float64
+    // // Float64
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F], #float64, #float64(1.0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x72, 0x38, 0x32, 0x8F, 0xFC, 0xC1, 0xC0, 0xF3, 0x3F], #float64, #float64(1.23456));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x72, 0x8A, 0xB0, 0xE1, 0xE9, 0xD6, 0x1C, 0xF8, 0xC0], #float64, #float64(-98765.4321));
@@ -173,39 +173,23 @@ module {
     if (not areEqual(bytes, actualBytes)) {
         Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
     };
-    let args : [(Types.Value, Types.TypeDef)] = Decoder.decode(Blob.fromArray(bytes));
-    if (args.size() != 1) {
-      Debug.trap("Too many args: " # Nat.toText(args.size()));
-    };
-    let (actualValue: Types.Value, actualType: Types.TypeDef) = args[0];
-    if (t != actualType) {
-      Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualType));
-    };
-    let valueIsValid = switch (arg) {
-      case (#float32(f32)) floatsAreEqual(#float32(f32), actualValue);
-      case (#float64(f64)) floatsAreEqual(#float64(f64), actualValue);
-      case (a) a == actualValue;
-    };
-    if (not valueIsValid) {
-      Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualValue));
-    };
-  };
-
-  private func floatsAreEqual(f1: {#float32:Float; #float64:Float}, v2: Types.Value) : Bool {
-    switch(v2) {
-      case (#float32(f32_2)) {
-        switch (f1) {
-          case (#float32(f32_1)) Float.abs(f32_1 - f32_2) < 0.00001; // TODO epsilon
-          case (_) return false;
-        };
+    let args : ?[(Types.Value, Types.TypeDef)] = Decoder.decode(Blob.fromArray(bytes));
+    switch(args){
+      case (null) {
+        Debug.trap("Failed decoding.\nExpected Type: " # debug_show(t) # "\nExpected Value: " # debug_show(arg) # "\nBytes: " # toHexString(bytes))
       };
-      case (#float64(f64_2)) {
-        switch (f1) {
-          case (#float64(f64_1)) Float.abs(f64_1 - f64_2) < 0.00001; // TODO epsilon
-          case (_) return false;
+      case (?args) {
+        if (args.size() != 1) {
+          Debug.trap("Too many args: " # Nat.toText(args.size()));
         };
-      };
-      case (_) return false;
+        let (actualValue: Types.Value, actualType: Types.TypeDef) = args[0];
+        if (not Types.typesAreEqual(t, actualType)) {
+          Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualType));
+        };
+        if (not Types.valuesAreEqual(arg, actualValue)) {
+          Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualValue));
+        };
+      }
     };
   };
 
