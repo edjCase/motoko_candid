@@ -39,9 +39,9 @@ module {
     #vector : [Value];
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;
-    #_func : Func;
-    #service : PrincipalValue;
-    #principal : PrincipalValue;
+    #_func : Reference<Func>;
+    #service : Reference<Principal>;
+    #principal : Reference<Principal>;
   };
 
   public func valuesAreEqual(v1: Value, v2: Value): Bool {
@@ -183,9 +183,9 @@ module {
 
   public type Id = Text;
 
-  public type PrincipalValue = {
+  public type Reference<T> = {
     #opaque;
-    #transparent : Principal;
+    #transparent : T;
   };
 
   public type ServiceType = {
@@ -193,11 +193,8 @@ module {
   };
 
   public type Func = {
-    #opaque;
-    #transparent : {
-      service : PrincipalValue;
-      method : Text;
-    };
+    service : Reference<Principal>;
+    method : Text;
   };
 
   public type RecordFieldType = {
@@ -212,8 +209,13 @@ module {
     #named : [(Id, TypeDef)];
   };
 
+  public type FuncMode = {
+    #oneWay;
+    #_query;
+  };
+
   public type FuncType = {
-    modes : [{ #oneWay; #_query }];
+    modes : [FuncMode];
     // TODO check the spec
     argTypes : FuncArgs;
     returnTypes : FuncArgs;
@@ -355,7 +357,7 @@ module {
   };
 
   public type FuncReferenceType = {
-    modes : [{ #oneWay; #_query }];
+    modes : [FuncMode];
     // TODO check the spec
     argTypes : FuncReferenceArgs;
     returnTypes : FuncReferenceArgs;

@@ -9,6 +9,7 @@ import Bool "mo:base/Bool";
 import Nat "mo:base/Nat";
 import Float "mo:base/Float";
 import Nat8 "mo:base/Nat8";
+import Principal "mo:base/Principal";
 import Types "../src/Types";
 
 module {
@@ -112,6 +113,26 @@ module {
     // Record
     test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x01, 0x01, 0x7C, 0x01, 0x00, 0x2A], #record([{tag=#hash(1); _type=#int}]), #record([{tag=#hash(1); value=#int(42)}]));
     test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x02, 0x86, 0x8E, 0xB7, 0x02, 0x7C, 0xD3, 0xE3, 0xAA, 0x02, 0x7E, 0x01, 0x00, 0x01, 0x2A], #record([{tag=#name("foo"); _type=#int}, {tag=#name("bar"); _type=#bool}]), #record([{tag=#name("foo"); value=#int(42)}, {tag=#name("bar"); value=#bool(true)}]));
+    test(
+      [0x44, 0x49, 0x44, 0x4C, 0x02, 0x6E, 0x01, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x00, 0x01, 0x01, 0x01, 0x00],
+      #reference(#record([
+        {
+          tag=#name("selfRef");
+          _type=#opt(#reference("rec_1"))
+        }
+      ])),
+      #record([
+        {
+          tag=#name("selfRef");
+          value=#opt(?#record([
+            {
+              tag=#name("selfRef");
+              value=#opt(null)
+            }
+          ]))
+        }
+      ])
+    );
 
     // Variant
     test([0x44, 0x49, 0x44, 0x4C, 0x03, 0x6C, 0x05, 0xC4, 0xA7, 0xC9, 0xA1, 0x01, 0x79, 0xDC, 0x8B, 0xD3, 0xF4, 0x01, 0x79, 0x8D, 0x98, 0xF3, 0xE7, 0x04, 0x7C, 0xE2, 0xD8, 0xDE, 0xFB, 0x0B, 0x79, 0x89, 0xFB, 0x97, 0xEB, 0x0E, 0x71, 0x6B, 0x01, 0xCF, 0xA0, 0xDE, 0xF2, 0x06, 0x7F, 0x6B, 0x02, 0x9C, 0xC2, 0x01, 0x00, 0xE5, 0x8E, 0xB4, 0x02, 0x01, 0x01, 0x02, 0x01, 0x00],
@@ -161,10 +182,35 @@ module {
     );
 
     // Func
-
+    test(
+      [],
+      #_func({
+        modes=[#_query,#oneWay];
+        argTypes=#ordered([#int, #opt(#nat)]);
+        returnTypes=#ordered([#vector(#int8)]);
+      }),
+      #_func(#transparent({
+        method="ExecuteNNSFunction";
+        service=#transparent(Principal.fromText(""))
+      }))
+    );
     // Service
-
-    
+    test(
+      [],
+      #service({
+        methods=[
+          (
+            "ExecuteNNSFunction",
+            {
+              modes=[#_query,#oneWay];
+              argTypes=#ordered([#int, #opt(#nat)]);
+              returnTypes=#ordered([#vector(#int8)]);
+            }
+          )
+        ]
+      }),
+      #service(#transparent(Principal.fromText("")))
+    );
 
   };
 

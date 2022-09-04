@@ -24,6 +24,7 @@ module {
   type Tag = Types.Tag;
 
 
+  // TODO change ? to be result with specific error messages
   public func decode(candidBytes: Blob) : ?[(Value, TypeDef)] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));
@@ -86,24 +87,14 @@ module {
         };
         case (#float64) #float64(FloatX.decodeFloat(bytes, #lsb)!);
         case (#text) {
-          let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
-          let textBytes: [Nat8] = takeBytes(bytes, length)!; 
-          let text : Text = Text.decodeUtf8(Blob.fromArray(textBytes))!;
-          #text(text);
+          let t: Text = decodeText(bytes)!;
+          #text(t);
         };
         case (#reserved) #reserved;
         case (#empty) #empty;
         case (#principal) {
-          let transparentByte = bytes.next()!;
-          switch (transparentByte) {
-            case (0x00) #principal(#opaque);
-            case (0x01) {
-              let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
-              let principalBytes = takeBytes(bytes, length)!;
-              #principal(#transparent(Principal.fromBlob(Blob.fromArray(principalBytes))));
-            };
-            case (_) return null;
-          };
+          let p: Types.Reference<Principal> = decodeReference(bytes, decodePrincipal)!;
+          #principal(p);
         };
         case (#opt(o)) {
           let optionalByte = bytes.next()!;
@@ -146,12 +137,12 @@ module {
           #record(buffer.toArray());
         };
         case (#_func(f)) {
-          // TODO
-          #_func(#opaque);
+          let f = decodeReference(bytes, decodeFunc)!;
+          #_func(f);
         };
         case (#service(s)) {
-          // TODO
-          #opt(null);
+          let principal: Types.Reference<Principal> = decodeReference(bytes, decodePrincipal)!;
+          #service(principal);
         };
         case (#variant(v)) {
           let innerTypes: [Types.VariantOptionType] = switch (t) {
@@ -164,6 +155,44 @@ module {
           #variant({tag=innerType.tag; value=innerValue});
         };
       };
+    };
+  };
+
+  private func decodeFunc(bytes: Iter.Iter<Nat8>): ?Types.Func {
+    do ? {
+      let service = decodeReference(bytes, decodePrincipal)!;
+      let methodName = decodeText(bytes)!;
+      { service=service; method=methodName; }
+    }
+  };
+
+  private func decodePrincipal(bytes: Iter.Iter<Nat8>) : ?Principal {
+    do ? {
+      let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
+      let principalBytes = takeBytes(bytes, length)!;
+      Principal.fromBlob(Blob.fromArray(principalBytes));
+    }
+  };
+
+  private func decodeReference<T>(bytes: Iter.Iter<Nat8>, innerDecode: (Iter.Iter<Nat8>) -> ?T) : ?Types.Reference<T> {
+    do ? {
+      let transparentByte = bytes.next()!;
+      switch (transparentByte) {
+        case (0x00) #opaque;
+        case (0x01) {
+          let v: T = innerDecode(bytes)!;
+          #transparent(v);
+        };
+        case (_) return null;
+      };
+    }
+  };
+
+  private func decodeText(bytes: Iter.Iter<Nat8>) : ?Text {
+    do ? {
+      let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
+      let textBytes: [Nat8] = takeBytes(bytes, length)!; 
+      Text.decodeUtf8(Blob.fromArray(textBytes))!;
     };
   };
 
@@ -266,7 +295,7 @@ module {
       let codeLength = NatX.decodeNat(bytes, #unsignedLEB128)!;
       let indicesOrCodes = Buffer.Buffer<Int>(codeLength);
       for (i in Iter.range(0, codeLength - 1)) {
-        let indexOrCode: Int = IntX.decodeInt(bytes, #signedLEB128)!;
+        let indexOrCode: Types.ReferenceType = decodeReferenceType(bytes)!;
         indicesOrCodes.add(indexOrCode);
       };
 
@@ -276,52 +305,99 @@ module {
 
   private func decodeType(bytes: Iter.Iter<Nat8>) : ?Types.CompoundReferenceType {
     do ? {
-      let typeCode: Int = IntX.decodeInt(bytes, #signedLEB128)!;
+      let typeCode: Int = decodeReferenceType(bytes)!;
       switch(typeCode) {
         // opt
         case (-18) { // TODO why cant use Types.TypeDef.opt here
-          let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
+          let innerRef = decodeReferenceType(bytes)!;
           #opt(innerRef);
         };
         // vector
         case (-19) {
-          let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
+          let innerRef = decodeReferenceType(bytes)!;
           #vector(innerRef);
         };
         // record
         case (-20) {
-          let fieldCount = NatX.decodeNat(bytes, #unsignedLEB128)!;
-          let fields = Buffer.Buffer<Types.RecordFieldReferenceType>(fieldCount);
-          for (i in Iter.range(0, fieldCount - 1)) {
-            let tag = Nat32.fromNat(NatX.decodeNat(bytes, #unsignedLEB128)!);
-            let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
-            fields.add({_type=innerRef; tag=#hash(tag)});
-          };
-          #record(fields.toArray());
+          let fields: [Types.RecordFieldReferenceType] = decodeTypeMulti(bytes, decodeTaggedType)!;
+          #record(fields);
         };
         // variant
         case (-21) {
-          let optionCount = NatX.decodeNat(bytes, #unsignedLEB128)!;
-          let options = Buffer.Buffer<Types.VariantOptionReferenceType>(optionCount);
-          for (i in Iter.range(0, optionCount - 1)) {
-            let tag = Nat32.fromNat(NatX.decodeNat(bytes, #unsignedLEB128)!);
-            let innerRef = IntX.decodeInt(bytes, #signedLEB128)!;
-            options.add({_type=innerRef; tag=#hash(tag)});
-          };
-          #variant(options.toArray());
+          let options: [Types.VariantOptionReferenceType] = decodeTypeMulti(bytes, decodeTaggedType)!;
+          #variant(options);
         };
         // func
         case (-22) {
-          // TODO
-          #opt(0);
+          let modes: [Types.FuncMode] = decodeTypeMulti(bytes, decodeFuncMode)!;
+          let argTypes: Types.FuncReferenceArgs = decodeFuncArgs(bytes)!;
+          let returnTypes: Types.FuncReferenceArgs = decodeFuncArgs(bytes)!;
+          #_func({
+            modes=modes;
+            argTypes=argTypes;
+            returnTypes=returnTypes;
+          });
         };
         // service
         case (-23) {
-          // TODO
-          #opt(0);
+          let methods: [(Types.Id, Types.ReferenceType)] = decodeTypeMulti(bytes, decodeMethod)!;
+          #service({
+            methods=methods;
+          });
         };
         case (_) return null;
       };
     };
   };
+
+  private func decodeFuncArgs(bytes: Iter.Iter<Nat8>) : ?Types.FuncReferenceArgs {
+    do ? {
+      let ordered = decodeTypeMulti(bytes, decodeReferenceType)!;
+      // TODO what about named?
+      #ordered(ordered);
+    }
+  };
+
+  private func decodeFuncMode(bytes: Iter.Iter<Nat8>): ?Types.FuncMode {
+    do ? {
+      let modeByte = bytes.next()!;
+      switch(modeByte) {
+        case (0x01) #_query;
+        case (0x02) #oneWay;
+        case (_) return null;
+      }
+    }
+  };
+
+  private func decodeReferenceType(bytes: Iter.Iter<Nat8>): ?Types.ReferenceType {
+    IntX.decodeInt(bytes, #signedLEB128);
+  };
+
+  private func decodeMethod(bytes: Iter.Iter<Nat8>): ?(Types.Id, Types.ReferenceType) {
+    do ? {
+      let methodName: Text = decodeText(bytes)!;
+      let innerType: Types.ReferenceType = decodeReferenceType(bytes)!;
+      (methodName, innerType);
+    }
+  };
+
+  private func decodeTaggedType(bytes: Iter.Iter<Nat8>): ?{_type:Types.ReferenceType; tag:Types.Tag} {
+    do ? {
+      let tag = Nat32.fromNat(NatX.decodeNat(bytes, #unsignedLEB128)!);
+      let innerRef = decodeReferenceType(bytes)!;
+      {_type=innerRef; tag=#hash(tag)};
+    }
+  };
+
+  private func decodeTypeMulti<T>(bytes: Iter.Iter<Nat8>, decodeType: (Iter.Iter<Nat8>) -> ?T): ?[T] {
+    do ? {
+      let optionCount = NatX.decodeNat(bytes, #unsignedLEB128)!;
+      let options = Buffer.Buffer<T>(optionCount);
+      for (i in Iter.range(0, optionCount - 1)) {
+        let item = decodeType(bytes)!;
+        options.add(item);
+      };
+      options.toArray();
+    }
+  }
 };
