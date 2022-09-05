@@ -251,7 +251,14 @@ module {
     #service : ServiceType;
   };
 
-  public type TypeDef = CompoundType or PrimitiveType;
+  public type NamedReferenceType = {
+    #referencedType : {id:Id; _type:CompoundType};
+    #referenceId : Id;
+  };
+
+  public type RealType = CompoundType or PrimitiveType;
+
+  public type TypeDef = RealType or NamedReferenceType;
 
 
 

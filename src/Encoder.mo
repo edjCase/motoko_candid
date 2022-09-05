@@ -21,6 +21,7 @@ module {
   type Id = Types.Id;
   type Tag = Types.Tag;
   type TypeDef = Types.TypeDef;
+  type RealType = Types.RealType;
   type Value = Types.Value;
   type RecordFieldValue = Types.RecordFieldValue;
   type PrimitiveType = Types.PrimitiveType;
@@ -72,7 +73,7 @@ module {
     };
   };
 
-  private func getTypeCode(t : TypeDef) : Int {
+  private func getTypeCode(t : RealType) : Int {
     switch (t) {
       case (#int) Types.TypeDefCode.int;
       case (#int8) Types.TypeDefCode.int8;
@@ -180,7 +181,9 @@ module {
       case (#_func(fn)) addCompoundTypeToTable(#_func(fn), table, codes);
       case (#service(s)) addCompoundTypeToTable(#service(s), table, codes);
       case (#variant(v)) addCompoundTypeToTable(#variant(v), table, codes);
-      case (_) getTypeCode(t); // Primitives are just type codes
+      case (#referencedType(rT)) addTypeToTableInternal(rT._type, table, codes, nestedCall);
+      case (#referenceId(rI)) {};
+      case (pT) getTypeCode(pT); // Primitives are just type codes
     };    
   };
 

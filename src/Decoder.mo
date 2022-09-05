@@ -54,15 +54,42 @@ module {
   private func decodeValues(bytes: Iter.Iter<Nat8>, types: [TypeDef]) : ?[Value] {
     do ? {
       let valueBuffer = Buffer.Buffer<Value>(types.size());
+      let referencedTypes = TrieMap.TrieMap<Text, TypeDef>(Text.equal, Text.hash);
       for (t in Iter.fromArray(types)) {
-        let v = decodeValue(bytes, t)!;
+        addReferenceTypes(t, referencedTypes);
+      };
+      for (t in Iter.fromArray(types)) {
+        let v = decodeValue(bytes, t, referencedTypes)!;
         valueBuffer.add(v);
       };
       valueBuffer.toArray();
     };
   };
 
-  private func decodeValue(bytes: Iter.Iter<Nat8>, t: TypeDef) : ?Value {
+  private func addReferenceTypes(t: TypeDef, referencedTypes: TrieMap.TrieMap<Text, TypeDef>) {
+    switch (t) {
+      case (#opt(o)) {
+        addReferenceTypes(o, referencedTypes);
+      };
+      case (#variant(options)) {
+        for (option in Iter.fromArray(options)) {
+          addReferenceTypes(option._type, referencedTypes);
+        };
+      };
+      case (#record(fields)) {
+        for (field in Iter.fromArray(fields)) {
+          addReferenceTypes(field._type, referencedTypes);
+        };
+      };
+      case (#referencedType(rT)) {
+        referencedTypes.put(rT.id, rT._type);
+        addReferenceTypes(rT._type, referencedTypes)
+      };
+      case (_) {};
+    }
+  };
+
+  private func decodeValue(bytes: Iter.Iter<Nat8>, t: TypeDef, referencedTypes: TrieMap.TrieMap<Text, TypeDef>) : ?Value {
     do ? {
       switch (t) {
         case (#int) #int(IntX.decodeInt(bytes, #signedLEB128)!);
@@ -105,7 +132,7 @@ module {
                 case (#opt(o)) o;
                 case (_) return null; // type definition doesnt match
               };
-              let v = decodeValue(bytes, innerType)!;
+              let v = decodeValue(bytes, innerType, referencedTypes)!;
               #opt(?v);
             };
             case (_) return null;
@@ -119,7 +146,7 @@ module {
             case (_) return null; // type definition doesnt match
           };
           for (i in Iter.range(0, length - 1)) {
-            let innerValue: Value = decodeValue(bytes, innerType)!;
+            let innerValue: Value = decodeValue(bytes, innerType, referencedTypes)!;
             buffer.add(innerValue);
           };
           #vector(buffer.toArray());
@@ -131,7 +158,7 @@ module {
           };
           let buffer = Buffer.Buffer<Types.RecordFieldValue>(innerTypes.size());
           for (innerType in Iter.fromArray(innerTypes)) {
-            let innerValue: Value = decodeValue(bytes, innerType._type)!;
+            let innerValue: Value = decodeValue(bytes, innerType._type, referencedTypes)!;
             buffer.add({tag=innerType.tag; value=innerValue});
           };
           #record(buffer.toArray());
@@ -151,8 +178,15 @@ module {
           };
           let optionIndex = NatX.decodeNat(bytes, #unsignedLEB128)!; // Get index of option chosen
           let innerType: Types.VariantOptionType = innerTypes[optionIndex];
-          let innerValue: Value = decodeValue(bytes, innerType._type)!; // Get value of option chosen
+          let innerValue: Value = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
           #variant({tag=innerType.tag; value=innerValue});
+        };
+        case (#referencedType(rT)) {
+          decodeValue(bytes, rT._type, referencedTypes)!;
+        };
+        case (#referenceId(rI)) {
+          let rType: TypeDef = referencedTypes.get(rI)!;
+          decodeValue(bytes, rType, referencedTypes)!;
         };
       };
     };
@@ -271,12 +305,51 @@ module {
               #variant(options.toArray());
             };
             case (#_func(f)) {
-              // TODO
-              #opt(#int);
+              let modes: [Types.FuncMode] = f.modes;
+              let map = func (a: Types.FuncReferenceArgs) : ?Types.FuncArgs {
+                do ? {
+                  switch (a) {
+                    case (#named(n)) {
+                      let newN = Buffer.Buffer<(Text, TypeDef)>(n.size());
+                      for (item in Iter.fromArray(n)) {
+                        let t: TypeDef = buildType(item.1, compoundTypes)!;
+                        newN.add((item.0, t));
+                      };
+                      #named(newN.toArray());
+                    };
+                    case (#ordered(o)) {
+                      let newO = Buffer.Buffer<TypeDef>(o.size());
+                      for (item in Iter.fromArray(o)) {
+                        let t: TypeDef = buildType(item, compoundTypes)!;
+                        newO.add(t);
+                      };
+                      #ordered(newO.toArray());
+                    };
+                  };
+                }
+              };
+              let argTypes: Types.FuncArgs = map(f.argTypes)!;
+              let returnTypes: Types.FuncArgs = map(f.returnTypes)!;
+              #_func({
+                argTypes=argTypes;
+                modes=modes;
+                returnTypes=returnTypes;
+              });
             };
             case (#service(s)) {
-              // TODO
-              #opt(#int);
+              let methods = Buffer.Buffer<(Types.Id, Types.FuncType)>(s.methods.size());
+              for (method in Iter.fromArray(s.methods)) {
+                let t: TypeDef = buildType(method.1, compoundTypes)!;
+                switch (t) {
+                  case (#_func(f)) {
+                    methods.add((method.0, f));
+                  };
+                  case (_) return null;
+                }
+              };
+              #service({
+                methods=methods.toArray();
+              });
             };
           };
         }
