@@ -14,14 +14,16 @@ import Order "mo:base/Order";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import TrieMap "mo:base/TrieMap";
+import TrieSet "mo:base/TrieSet";
 import Types "./Types";
 
 module {
 
   type Value = Types.Value;
   type TypeDef = Types.TypeDef;
-  type CompoundReferenceType = Types.CompoundReferenceType;
+  type ShallowCompoundType<T> = Types.ShallowCompoundType<T>;
   type Tag = Types.Tag;
+  type ReferenceType = Types.ReferenceType;
 
 
   // TODO change ? to be result with specific error messages
@@ -37,7 +39,7 @@ module {
       if ((prefix1, prefix2, prefix3, prefix4) != (0x44, 0x49, 0x44, 0x4c)) {
         return null;
       };
-      let (compoundTypes: [CompoundReferenceType], argTypes: [Int]) = decodeTypes(bytes)!;
+      let (compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) = decodeTypes(bytes)!;
       let types : [TypeDef] = buildTypes(compoundTypes, argTypes)!;
       let values: [Value] = decodeValues(bytes, types)!;
       var i = 0;
@@ -81,7 +83,7 @@ module {
           addReferenceTypes(field._type, referencedTypes);
         };
       };
-      case (#referencedType(rT)) {
+      case (#recursiveType(rT)) {
         referencedTypes.put(rT.id, rT._type);
         addReferenceTypes(rT._type, referencedTypes)
       };
@@ -181,10 +183,10 @@ module {
           let innerValue: Value = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
           #variant({tag=innerType.tag; value=innerValue});
         };
-        case (#referencedType(rT)) {
+        case (#recursiveType(rT)) {
           decodeValue(bytes, rT._type, referencedTypes)!;
         };
-        case (#referenceId(rI)) {
+        case (#recursiveReference(rI)) {
           let rType: TypeDef = referencedTypes.get(rI)!;
           decodeValue(bytes, rType, referencedTypes)!;
         };
@@ -240,18 +242,18 @@ module {
     }
   };
 
-  private func buildTypes(compoundTypes: [CompoundReferenceType], argTypes: [Int]) : ?[TypeDef] {
+  private func buildTypes(compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) : ?[TypeDef] {
     do ? {
       let typeDefs = Buffer.Buffer<TypeDef>(argTypes.size());
       for (argType in Iter.fromArray(argTypes)) {
-        let typeDef: TypeDef = buildType(argType, compoundTypes)!;
+        let typeDef: TypeDef = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, Text>(Nat.equal, Int.hash))!;
         typeDefs.add(typeDef);
       };
       typeDefs.toArray();
     }
   };
 
-  private func buildType(indexOrCode: Int, compoundTypes: [CompoundReferenceType]) : ?TypeDef {
+  private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, Text>) : ?TypeDef {
     do ? {
       switch (indexOrCode) {
         case (-1) #_null;
@@ -278,20 +280,29 @@ module {
           };
           // Positives are indices for compound types
           let index: Nat = Int.abs(indexOrCode);
+          
+          // Check to see if a parent type is being referenced (cycle)
+          switch (parentTypes.get(index)) {
+            case (null) ();
+            case (?recursiveId) return ?#recursiveReference(recursiveId); // Stop and return recursive reference
+          };
+
+          let recursiveId = "μ" # Nat.toText(index);
+          parentTypes.put(index, recursiveId);
           let refType = compoundTypes[index];
           switch (refType) {
             case (#opt(o)) {
-              let inner: TypeDef = buildType(o, compoundTypes)!;
+              let inner: TypeDef = buildType(o, compoundTypes, parentTypes)!;
               #opt(inner);
             };
             case (#vector(ve)) {
-              let inner: TypeDef = buildType(ve, compoundTypes)!;
+              let inner: TypeDef = buildType(ve, compoundTypes, parentTypes)!;
               #vector(inner);
             };
             case (#record(r)) {
               let fields = Buffer.Buffer<Types.RecordFieldType>(r.size());
               for (fieldRefType in Iter.fromArray(r)) {
-                let fieldType: TypeDef = buildType(fieldRefType._type, compoundTypes)!;
+                let fieldType: TypeDef = buildType(fieldRefType._type, compoundTypes, parentTypes)!;
                 fields.add({tag=fieldRefType.tag; _type=fieldType});
               };
               #record(fields.toArray());
@@ -299,20 +310,20 @@ module {
             case (#variant(va)) {
               let options = Buffer.Buffer<Types.VariantOptionType>(va.size());
               for (optionRefType in Iter.fromArray(va)) {
-                let optionType: TypeDef = buildType(optionRefType._type, compoundTypes)!;
+                let optionType: TypeDef = buildType(optionRefType._type, compoundTypes, parentTypes)!;
                 options.add({tag=optionRefType.tag; _type=optionType});
               };
               #variant(options.toArray());
             };
             case (#_func(f)) {
               let modes: [Types.FuncMode] = f.modes;
-              let map = func (a: Types.FuncReferenceArgs) : ?Types.FuncArgs {
+              let map = func (a: Types.FuncReferenceArgs<ReferenceType>) : ?Types.FuncArgs {
                 do ? {
                   switch (a) {
                     case (#named(n)) {
                       let newN = Buffer.Buffer<(Text, TypeDef)>(n.size());
                       for (item in Iter.fromArray(n)) {
-                        let t: TypeDef = buildType(item.1, compoundTypes)!;
+                        let t: TypeDef = buildType(item.1, compoundTypes, parentTypes)!;
                         newN.add((item.0, t));
                       };
                       #named(newN.toArray());
@@ -320,7 +331,7 @@ module {
                     case (#ordered(o)) {
                       let newO = Buffer.Buffer<TypeDef>(o.size());
                       for (item in Iter.fromArray(o)) {
-                        let t: TypeDef = buildType(item, compoundTypes)!;
+                        let t: TypeDef = buildType(item, compoundTypes, parentTypes)!;
                         newO.add(t);
                       };
                       #ordered(newO.toArray());
@@ -339,7 +350,7 @@ module {
             case (#service(s)) {
               let methods = Buffer.Buffer<(Types.Id, Types.FuncType)>(s.methods.size());
               for (method in Iter.fromArray(s.methods)) {
-                let t: TypeDef = buildType(method.1, compoundTypes)!;
+                let t: TypeDef = buildType(method.1, compoundTypes, parentTypes)!;
                 switch (t) {
                   case (#_func(f)) {
                     methods.add((method.0, f));
@@ -357,10 +368,10 @@ module {
     };
   };
   
-  private func decodeTypes(bytes: Iter.Iter<Nat8>) : ?([CompoundReferenceType], [Int]) {
+  private func decodeTypes(bytes: Iter.Iter<Nat8>) : ?([ShallowCompoundType<ReferenceType>], [Int]) {
     do ? {
       let compoundTypeLength: Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
-      let types = Buffer.Buffer<CompoundReferenceType>(compoundTypeLength);
+      let types = Buffer.Buffer<ShallowCompoundType<ReferenceType>>(compoundTypeLength);
       for (i in Iter.range(0, compoundTypeLength - 1)) {
         let t = decodeType(bytes)!;
         types.add(t);
@@ -368,7 +379,7 @@ module {
       let codeLength = NatX.decodeNat(bytes, #unsignedLEB128)!;
       let indicesOrCodes = Buffer.Buffer<Int>(codeLength);
       for (i in Iter.range(0, codeLength - 1)) {
-        let indexOrCode: Types.ReferenceType = decodeReferenceType(bytes)!;
+        let indexOrCode: Int = IntX.decodeInt(bytes, #signedLEB128)!;
         indicesOrCodes.add(indexOrCode);
       };
 
@@ -376,10 +387,10 @@ module {
     }
   };
 
-  private func decodeType(bytes: Iter.Iter<Nat8>) : ?Types.CompoundReferenceType {
+  private func decodeType(bytes: Iter.Iter<Nat8>) : ?Types.ShallowCompoundType<ReferenceType> {
     do ? {
-      let typeCode: Int = decodeReferenceType(bytes)!;
-      switch(typeCode) {
+      let referenceType: Types.ReferenceType = decodeReferenceType(bytes)!;
+      switch(referenceType) {
         // opt
         case (-18) { // TODO why cant use Types.TypeDef.opt here
           let innerRef = decodeReferenceType(bytes)!;
@@ -392,19 +403,19 @@ module {
         };
         // record
         case (-20) {
-          let fields: [Types.RecordFieldReferenceType] = decodeTypeMulti(bytes, decodeTaggedType)!;
+          let fields: [Types.RecordFieldReferenceType<ReferenceType>] = decodeTypeMulti(bytes, decodeTaggedType)!;
           #record(fields);
         };
         // variant
-        case (-21) {
-          let options: [Types.VariantOptionReferenceType] = decodeTypeMulti(bytes, decodeTaggedType)!;
+        case (21) {
+          let options: [Types.VariantOptionReferenceType<ReferenceType>] = decodeTypeMulti(bytes, decodeTaggedType)!;
           #variant(options);
         };
         // func
         case (-22) {
           let modes: [Types.FuncMode] = decodeTypeMulti(bytes, decodeFuncMode)!;
-          let argTypes: Types.FuncReferenceArgs = decodeFuncArgs(bytes)!;
-          let returnTypes: Types.FuncReferenceArgs = decodeFuncArgs(bytes)!;
+          let argTypes: Types.FuncReferenceArgs<ReferenceType> = decodeFuncArgs(bytes)!;
+          let returnTypes: Types.FuncReferenceArgs<ReferenceType> = decodeFuncArgs(bytes)!;
           #_func({
             modes=modes;
             argTypes=argTypes;
@@ -423,7 +434,7 @@ module {
     };
   };
 
-  private func decodeFuncArgs(bytes: Iter.Iter<Nat8>) : ?Types.FuncReferenceArgs {
+  private func decodeFuncArgs(bytes: Iter.Iter<Nat8>) : ?Types.FuncReferenceArgs<ReferenceType> {
     do ? {
       let ordered = decodeTypeMulti(bytes, decodeReferenceType)!;
       // TODO what about named?
@@ -442,14 +453,14 @@ module {
     }
   };
 
-  private func decodeReferenceType(bytes: Iter.Iter<Nat8>): ?Types.ReferenceType {
+  private func decodeReferenceType(bytes: Iter.Iter<Nat8>): ?Int {
     IntX.decodeInt(bytes, #signedLEB128);
   };
 
   private func decodeMethod(bytes: Iter.Iter<Nat8>): ?(Types.Id, Types.ReferenceType) {
     do ? {
       let methodName: Text = decodeText(bytes)!;
-      let innerType: Types.ReferenceType = decodeReferenceType(bytes)!;
+      let innerType: Int = decodeReferenceType(bytes)!;
       (methodName, innerType);
     }
   };

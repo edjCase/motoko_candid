@@ -249,16 +249,11 @@ module {
     #variant : [VariantOptionType];
     #_func : FuncType;
     #service : ServiceType;
+    #recursiveType : {id:Id; _type:CompoundType};
+    #recursiveReference : Id;
   };
 
-  public type NamedReferenceType = {
-    #referencedType : {id:Id; _type:CompoundType};
-    #referenceId : Id;
-  };
-
-  public type RealType = CompoundType or PrimitiveType;
-
-  public type TypeDef = RealType or NamedReferenceType;
+  public type TypeDef = CompoundType or PrimitiveType;
 
 
 
@@ -351,38 +346,40 @@ module {
 
   public type ReferenceType = Int;
 
-  public type RecordFieldReferenceType = {
+  public type RecordFieldReferenceType<TReference> = {
     tag: Tag;
-    _type : ReferenceType;
+    _type : TReference;
   };
 
-  public type VariantOptionReferenceType = RecordFieldReferenceType;
+  public type VariantOptionReferenceType<TReference> = RecordFieldReferenceType<TReference>;
 
-  public type FuncReferenceArgs = {
-    #ordered : [ReferenceType];
-    #named : [(Id, ReferenceType)];
+  public type FuncReferenceArgs<TReference> = {
+    #ordered : [TReference];
+    #named : [(Id, TReference)];
   };
 
-  public type FuncReferenceType = {
+  public type FuncReferenceType<TReference> = {
     modes : [FuncMode];
     // TODO check the spec
-    argTypes : FuncReferenceArgs;
-    returnTypes : FuncReferenceArgs;
+    argTypes : FuncReferenceArgs<TReference>;
+    returnTypes : FuncReferenceArgs<TReference>;
   };
 
 
 
-  public type ServiceReferenceType = {
-    methods : [(Id, ReferenceType)];
+  public type ServiceReferenceType<TReference> = {
+    methods : [(Id, TReference)];
   };
 
-  public type CompoundReferenceType = {
-    #opt : ReferenceType;
-    #vector : ReferenceType;
-    #record : [RecordFieldReferenceType];
-    #variant : [VariantOptionReferenceType];
-    #_func : FuncReferenceType;
-    #service : ServiceReferenceType;
+
+
+  public type ShallowCompoundType<TReference> = {
+    #opt : TReference;
+    #vector : TReference;
+    #record : [RecordFieldReferenceType<TReference>];
+    #variant : [VariantOptionReferenceType<TReference>];
+    #_func : FuncReferenceType<TReference>;
+    #service : ServiceReferenceType<TReference>;
   };
 
 
