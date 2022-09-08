@@ -41,7 +41,9 @@ module {
       };
       let (compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) = decodeTypes(bytes)!;
       let types : [TypeDef] = buildTypes(compoundTypes, argTypes)!;
+      Debug.print("Types: " # debug_show(types));
       let values: [Value] = decodeValues(bytes, types)!;
+      Debug.print("Values: " # debug_show(values));
       var i = 0;
       let valueTypes = Buffer.Buffer<(Value, TypeDef)>(types.size());
       for (t in Iter.fromArray(types)) {
@@ -246,14 +248,14 @@ module {
     do ? {
       let typeDefs = Buffer.Buffer<TypeDef>(argTypes.size());
       for (argType in Iter.fromArray(argTypes)) {
-        let typeDef: TypeDef = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, Text>(Nat.equal, Int.hash))!;
+        let typeDef: TypeDef = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, (Text, Bool)>(Nat.equal, Int.hash))!;
         typeDefs.add(typeDef);
       };
       typeDefs.toArray();
     }
   };
 
-  private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, Text>) : ?TypeDef {
+  private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, (Text, Bool)>) : ?TypeDef {
     do ? {
       switch (indexOrCode) {
         case (-1) #_null;
@@ -280,17 +282,22 @@ module {
           };
           // Positives are indices for compound types
           let index: Nat = Int.abs(indexOrCode);
+
+
           
           // Check to see if a parent type is being referenced (cycle)
           switch (parentTypes.get(index)) {
             case (null) ();
-            case (?recursiveId) return ?#recursiveReference(recursiveId); // Stop and return recursive reference
+            case (?recursiveId) {
+              parentTypes.put(index, (recursiveId.0, true));
+              return ?#recursiveReference(recursiveId.0); // Stop and return recursive reference
+            };
           };
 
           let recursiveId = "μ" # Nat.toText(index);
-          parentTypes.put(index, recursiveId);
+          parentTypes.put(index, (recursiveId, false));
           let refType = compoundTypes[index];
-          switch (refType) {
+          let t: Types.CompoundType = switch (refType) {
             case (#opt(o)) {
               let inner: TypeDef = buildType(o, compoundTypes, parentTypes)!;
               #opt(inner);
@@ -317,30 +324,18 @@ module {
             };
             case (#_func(f)) {
               let modes: [Types.FuncMode] = f.modes;
-              let map = func (a: Types.FuncReferenceArgs<ReferenceType>) : ?Types.FuncArgs {
+              let map = func (a: [ReferenceType]) : ?[TypeDef] {
                 do ? {
-                  switch (a) {
-                    case (#named(n)) {
-                      let newN = Buffer.Buffer<(Text, TypeDef)>(n.size());
-                      for (item in Iter.fromArray(n)) {
-                        let t: TypeDef = buildType(item.1, compoundTypes, parentTypes)!;
-                        newN.add((item.0, t));
-                      };
-                      #named(newN.toArray());
-                    };
-                    case (#ordered(o)) {
-                      let newO = Buffer.Buffer<TypeDef>(o.size());
-                      for (item in Iter.fromArray(o)) {
-                        let t: TypeDef = buildType(item, compoundTypes, parentTypes)!;
-                        newO.add(t);
-                      };
-                      #ordered(newO.toArray());
-                    };
+                  let newO = Buffer.Buffer<TypeDef>(a.size());
+                  for (item in Iter.fromArray(a)) {
+                    let t: TypeDef = buildType(item, compoundTypes, parentTypes)!;
+                    newO.add(t);
                   };
+                  newO.toArray();
                 }
               };
-              let argTypes: Types.FuncArgs = map(f.argTypes)!;
-              let returnTypes: Types.FuncArgs = map(f.returnTypes)!;
+              let argTypes: [TypeDef] = map(f.argTypes)!;
+              let returnTypes: [TypeDef] = map(f.returnTypes)!;
               #_func({
                 argTypes=argTypes;
                 modes=modes;
@@ -363,7 +358,16 @@ module {
               });
             };
           };
-        }
+          let isRecursive = parentTypes.get(index)!.1;
+          if (isRecursive) {
+            #recursiveType({
+              id=recursiveId;
+              _type=t
+            })
+          } else {
+            t
+          }
+        };
       }
     };
   };
@@ -407,15 +411,15 @@ module {
           #record(fields);
         };
         // variant
-        case (21) {
+        case (-21) {
           let options: [Types.VariantOptionReferenceType<ReferenceType>] = decodeTypeMulti(bytes, decodeTaggedType)!;
           #variant(options);
         };
         // func
         case (-22) {
+          let argTypes: [ReferenceType] = decodeTypeMulti(bytes, decodeReferenceType)!;
+          let returnTypes: [ReferenceType] = decodeTypeMulti(bytes, decodeReferenceType)!;
           let modes: [Types.FuncMode] = decodeTypeMulti(bytes, decodeFuncMode)!;
-          let argTypes: Types.FuncReferenceArgs<ReferenceType> = decodeFuncArgs(bytes)!;
-          let returnTypes: Types.FuncReferenceArgs<ReferenceType> = decodeFuncArgs(bytes)!;
           #_func({
             modes=modes;
             argTypes=argTypes;
@@ -432,14 +436,6 @@ module {
         case (_) return null;
       };
     };
-  };
-
-  private func decodeFuncArgs(bytes: Iter.Iter<Nat8>) : ?Types.FuncReferenceArgs<ReferenceType> {
-    do ? {
-      let ordered = decodeTypeMulti(bytes, decodeReferenceType)!;
-      // TODO what about named?
-      #ordered(ordered);
-    }
   };
 
   private func decodeFuncMode(bytes: Iter.Iter<Nat8>): ?Types.FuncMode {

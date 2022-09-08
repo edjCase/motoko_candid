@@ -204,11 +204,6 @@ module {
 
   public type VariantOptionType = RecordFieldType;
 
-  public type FuncArgs = {
-    #ordered : [TypeDef];
-    #named : [(Id, TypeDef)];
-  };
-
   public type FuncMode = {
     #oneWay;
     #_query;
@@ -216,9 +211,8 @@ module {
 
   public type FuncType = {
     modes : [FuncMode];
-    // TODO check the spec
-    argTypes : FuncArgs;
-    returnTypes : FuncArgs;
+    argTypes : [TypeDef];
+    returnTypes : [TypeDef];
   };
 
   public type PrimitiveType = {
@@ -339,6 +333,22 @@ module {
         // TODO
         s1 == s2;
       };
+      case (#recursiveType(r1)) {
+        let r2 = switch (v2) {
+          case(#recursiveType(r2)) r2;
+          case (_) return false;
+        };
+        // TODO names can be different
+        typesAreEqual(r1._type, r2._type);
+      };
+      case (#recursiveReference(r1)) {
+        let r2 = switch (v2) {
+          case(#recursiveReference(r2)) r2;
+          case (_) return false;
+        };
+        // TODO names can be different
+        true;
+      };
       case (a) a == v2;
     };
   };
@@ -353,16 +363,10 @@ module {
 
   public type VariantOptionReferenceType<TReference> = RecordFieldReferenceType<TReference>;
 
-  public type FuncReferenceArgs<TReference> = {
-    #ordered : [TReference];
-    #named : [(Id, TReference)];
-  };
-
   public type FuncReferenceType<TReference> = {
     modes : [FuncMode];
-    // TODO check the spec
-    argTypes : FuncReferenceArgs<TReference>;
-    returnTypes : FuncReferenceArgs<TReference>;
+    argTypes : [TReference];
+    returnTypes : [TReference];
   };
 
 
