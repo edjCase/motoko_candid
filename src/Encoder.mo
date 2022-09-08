@@ -46,8 +46,9 @@ module {
     buffer.add(0x44);
     buffer.add(0x4c);
 
-    encodeTypes(buffer, argTypes); // Encode compound type table + primitive types
-    encodeValues(buffer, argTypes, args); // Encode all the values for the types
+    let table : CompoundTypeTable = getTypeInfo(argTypes);
+    encodeTypes(buffer, table); // Encode compound type table + primitive types
+    encodeValues(buffer, table, args); // Encode all the values for the types
   };
 
   type CompoundTypeTable = {
@@ -55,18 +56,17 @@ module {
     typeCodes : [Int]
   };
 
-  private func encodeTypes(buffer : Buffer.Buffer<Nat8>, args : [TypeDef]) {
-    let info : CompoundTypeTable = getTypeInfo(args);
+  private func encodeTypes(buffer : Buffer.Buffer<Nat8>, table: CompoundTypeTable) {
 
-    NatX.encodeNat(buffer, info.compoundTypes.size(), #unsignedLEB128); // Encode compound type count
+    NatX.encodeNat(buffer, table.compoundTypes.size(), #unsignedLEB128); // Encode compound type count
 
     // Encode type table for compound types
-    for (t in Iter.fromArray(info.compoundTypes)) {
+    for (t in Iter.fromArray(table.compoundTypes)) {
       encodeType(buffer, t);
     };
 
-    IntX.encodeInt(buffer, info.typeCodes.size(), #signedLEB128); // Encode type count // TODO validate this is a SIGNED leb128, not unsigned
-    for (code in Iter.fromArray(info.typeCodes)) {
+    IntX.encodeInt(buffer, table.typeCodes.size(), #signedLEB128); // Encode type count // TODO validate this is a SIGNED leb128, not unsigned
+    for (code in Iter.fromArray(table.typeCodes)) {
       IntX.encodeInt(buffer, code, #signedLEB128); // Encode each type
     };
   };
@@ -80,8 +80,7 @@ module {
       case (#service(s)) Types.TypeDefCode.service;
       case (#variant(v)) Types.TypeDefCode.variant;
     };
-    IntX.encodeInt(buffer, typeCode, #signedLEB128);
-    // Encode compound type code
+    IntX.encodeInt(buffer, typeCode, #signedLEB128); // Encode compound type code
     switch (t) {
       case (#opt(o)) {
         IntX.encodeInt(buffer, o, #signedLEB128); // Encode reference index or type code
@@ -161,18 +160,27 @@ module {
     #indexOrCode: ReferenceType;
     #recursiveReference: Text;
   };
+  type NonRecursiveCompoundType = {
+    #opt : TypeDef;
+    #vector : TypeDef;
+    #record : [RecordFieldType];
+    #variant : [VariantOptionType];
+    #_func : Types.FuncType;
+    #service : Types.ServiceType;
+  };
   
   private func getTypeInfo(args : [TypeDef]) : CompoundTypeTable {
     let shallowTypes = Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>(args.size());
     let recursiveTypeIndexMap = TrieMap.TrieMap<Text, Nat>(Text.equal, Text.hash);
+    let uniqueTypeMap = TrieMap.TrieMap<NonRecursiveCompoundType, Nat>(Types.typesAreEqual, buildTypeHash);
 
     // Build shallow args and recursive types first, then resolve all recursive references
     let shallowArgs = Buffer.Buffer<ReferenceOrRecursiveType>(args.size());
     for (arg in Iter.fromArray(args)) {
-      let t = buildShallowTypes(shallowTypes, recursiveTypeIndexMap, arg);
+      let t = buildShallowTypes(shallowTypes, recursiveTypeIndexMap, uniqueTypeMap, arg);
       shallowArgs.add(t);
     };
-    // TODO remove duplicate compound types
+    
     let shallowTypesArray: [ShallowCompoundType<ReferenceOrRecursiveType>]  = shallowTypes.toArray();
     let resolvedCompoundTypes = Buffer.Buffer<ShallowCompoundType<ReferenceType>>(args.size());
     let typeIndexOrCodeList = Buffer.Buffer<Int>(args.size());
@@ -180,24 +188,9 @@ module {
       let indexOrCode = resolveArg(sArg, shallowTypesArray, recursiveTypeIndexMap, resolvedCompoundTypes);
       typeIndexOrCodeList.add(indexOrCode);
     };
-
-    var table = TrieMap.TrieMap<ShallowCompoundType<ReferenceType>, Nat>(typesAreEqual, buildTypeHash);
-    let codes = Buffer.Buffer<Int>(args.size());
-    
-    type TypeInfo = (ShallowCompoundType<ReferenceType>, Nat);
-    let sortedTable : [TypeInfo] = Array.sort<TypeInfo>(
-      Iter.toArray(table.entries()),
-      func(t1 : TypeInfo, t2 : TypeInfo) { Nat.compare(t1.1, t2.1) },
-    );
-    let compoundTypes : [ShallowCompoundType<ReferenceType>] = Iter.toArray(
-      Iter.map<TypeInfo, ShallowCompoundType<ReferenceType>>(
-        Iter.fromArray(sortedTable),
-        func(kv : TypeInfo) { kv.0 },
-      ),
-    );
     {
-      compoundTypes = compoundTypes;
-      typeCodes = codes.toArray();
+      compoundTypes = resolvedCompoundTypes.toArray();
+      typeCodes = typeIndexOrCodeList.toArray();
     };
   };
 
@@ -223,7 +216,7 @@ module {
             };
             case (#vector(v)) {
               let innerResolution: Int = mapArg(v);
-              #opt(innerResolution);
+              #vector(innerResolution);
             };
             case (#record(r)) {
               let resolvedFields = Array.map(r, func(f: RecordFieldReferenceType<ReferenceOrRecursiveType>): RecordFieldReferenceType<ReferenceType> {
@@ -284,70 +277,23 @@ module {
       }
   };
 
-  private func buildShallowTypes(buffer: Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>, recursiveTypes: TrieMap.TrieMap<Text, Nat>, t: TypeDef) : ReferenceOrRecursiveType {
-    let rT: ShallowCompoundType<ReferenceOrRecursiveType> = switch (t) {
-      case (#opt(o)) {
-        let innerTypeReference: ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, o);
-        #opt(innerTypeReference);
-      };
-      case (#vector(v)) {
-        let innerTypeReference: ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, v);
-        #vector(innerTypeReference);
-      };
-      case (#record(r)) {
-        let fields : [RecordFieldReferenceType<ReferenceOrRecursiveType>] = Iter.toArray(Iter.map<RecordFieldType, RecordFieldReferenceType<ReferenceOrRecursiveType>>(Iter.fromArray(r), func (f: RecordFieldType) : RecordFieldReferenceType<ReferenceOrRecursiveType> {
-          let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, f._type);
-          { tag = f.tag; _type = indexOrCode };
-        }));
-        #record(fields);
-      };
-      case (#variant(v)) {
-        let options : [VariantOptionReferenceType<ReferenceOrRecursiveType>] = Iter.toArray(Iter.map<VariantOptionType, VariantOptionReferenceType<ReferenceOrRecursiveType>>(Iter.fromArray(v), func (o: VariantOptionType) : VariantOptionReferenceType<ReferenceOrRecursiveType> {
-          let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, o._type);
-          { tag = o.tag; _type = indexOrCode };
-        }));
-        #variant(options);
-      };
-      case (#_func(fn)) {
-        let funcTypesToReference = func (t : Types.FuncArgs) : Types.FuncReferenceArgs<ReferenceOrRecursiveType> {
-          switch(t){
-            case (#named(namedTypes)) {
-              let refTypeBuffer = Buffer.Buffer<(Id, ReferenceOrRecursiveType)>(namedTypes.size());
-              for (t in Iter.fromArray(namedTypes)) {
-                let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, t.1);
-                refTypeBuffer.add((t.0, refType));
-              };
-              #named(refTypeBuffer.toArray());
-            };
-            case (#ordered(orderdTypes)) {
-              let refTypeBuffer = Buffer.Buffer<ReferenceOrRecursiveType>(orderdTypes.size());
-              for (t in Iter.fromArray(orderdTypes)) {
-                let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, t);
-                refTypeBuffer.add(refType);
-              };
-              #ordered(refTypeBuffer.toArray());
-            };
-          };
-        };
-        let argTypes : Types.FuncReferenceArgs<ReferenceOrRecursiveType> = funcTypesToReference(fn.argTypes);
-        let returnTypes : Types.FuncReferenceArgs<ReferenceOrRecursiveType> = funcTypesToReference(fn.returnTypes);
-        #_func({
-          modes=fn.modes;
-          argTypes=argTypes;
-          returnTypes=returnTypes;
-        });
-      };
-      case (#service(s)) {
-        let methods : [(Id, ReferenceOrRecursiveType)] = Array.map<(Id, Types.FuncType), (Id, ReferenceOrRecursiveType)>(s.methods, func (a: (Id, Types.FuncType)) : (Id, ReferenceOrRecursiveType) {
-          let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, #_func(a.1));
-          (a.0, refType);
-        });
-        #service({
-          methods=methods;
-        });
-      };
+
+  private func buildShallowTypes(
+    buffer: Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>,
+    recursiveTypes: TrieMap.TrieMap<Text, Nat>,
+    uniqueTypeMap: TrieMap.TrieMap<NonRecursiveCompoundType, Nat>,
+    t: TypeDef) : ReferenceOrRecursiveType {
+    
+    // TODO How to switch case on 'NonRecursiveCompoundType'
+    let compoundType: NonRecursiveCompoundType = switch (t) {
+      case (#opt(o)) #opt(o);
+      case (#vector(v)) #vector(v);
+      case (#variant(v)) #variant(v);
+      case (#record(r)) #record(r);
+      case (#_func(f)) #_func(f);
+      case (#service(s)) #service(s);
       case (#recursiveType(rT)) {
-        let innerReferenceType = buildShallowTypes(buffer, recursiveTypes, rT._type);
+        let innerReferenceType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, rT._type);
         switch (innerReferenceType){
           case (#indexOrCode(i)) {
             if (i < 0) {
@@ -382,36 +328,103 @@ module {
       case (#empty) return #indexOrCode(Types.TypeDefCode.empty);
       case (#principal) return #indexOrCode(Types.TypeDefCode.principal);
     };
+    switch (uniqueTypeMap.get(compoundType)) {
+      case (null) {}; // No duplicate found, continue
+      case (?i) return #indexOrCode(i); // Duplicate type, return index
+    };
+    
+
+    let rT: ShallowCompoundType<ReferenceOrRecursiveType> = switch (compoundType) {
+      case (#opt(o)) {
+        let innerTypeReference: ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, o);
+        #opt(innerTypeReference);
+      };
+      case (#vector(v)) {
+        let innerTypeReference: ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, v);
+        #vector(innerTypeReference);
+      };
+      case (#record(r)) {
+        let fields : [RecordFieldReferenceType<ReferenceOrRecursiveType>] = Iter.toArray(Iter.map<RecordFieldType, RecordFieldReferenceType<ReferenceOrRecursiveType>>(Iter.fromArray(r), func (f: RecordFieldType) : RecordFieldReferenceType<ReferenceOrRecursiveType> {
+          let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, f._type);
+          { tag = f.tag; _type = indexOrCode };
+        }));
+        #record(fields);
+      };
+      case (#variant(v)) {
+        let options : [VariantOptionReferenceType<ReferenceOrRecursiveType>] = Iter.toArray(Iter.map<VariantOptionType, VariantOptionReferenceType<ReferenceOrRecursiveType>>(Iter.fromArray(v), func (o: VariantOptionType) : VariantOptionReferenceType<ReferenceOrRecursiveType> {
+          let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, o._type);
+          { tag = o.tag; _type = indexOrCode };
+        }));
+        #variant(options);
+      };
+      case (#_func(fn)) {
+        let funcTypesToReference = func (t : Types.FuncArgs) : Types.FuncReferenceArgs<ReferenceOrRecursiveType> {
+          switch(t){
+            case (#named(namedTypes)) {
+              let refTypeBuffer = Buffer.Buffer<(Id, ReferenceOrRecursiveType)>(namedTypes.size());
+              for (t in Iter.fromArray(namedTypes)) {
+                let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, t.1);
+                refTypeBuffer.add((t.0, refType));
+              };
+              #named(refTypeBuffer.toArray());
+            };
+            case (#ordered(orderdTypes)) {
+              let refTypeBuffer = Buffer.Buffer<ReferenceOrRecursiveType>(orderdTypes.size());
+              for (t in Iter.fromArray(orderdTypes)) {
+                let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, t);
+                refTypeBuffer.add(refType);
+              };
+              #ordered(refTypeBuffer.toArray());
+            };
+          };
+        };
+        let argTypes : Types.FuncReferenceArgs<ReferenceOrRecursiveType> = funcTypesToReference(fn.argTypes);
+        let returnTypes : Types.FuncReferenceArgs<ReferenceOrRecursiveType> = funcTypesToReference(fn.returnTypes);
+        #_func({
+          modes=fn.modes;
+          argTypes=argTypes;
+          returnTypes=returnTypes;
+        });
+      };
+      case (#service(s)) {
+        let methods : [(Id, ReferenceOrRecursiveType)] = Array.map<(Id, Types.FuncType), (Id, ReferenceOrRecursiveType)>(s.methods, func (a: (Id, Types.FuncType)) : (Id, ReferenceOrRecursiveType) {
+          let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, #_func(a.1));
+          (a.0, refType);
+        });
+        #service({
+          methods=methods;
+        });
+      };
+    };
+    let index = buffer.size();
+    uniqueTypeMap.put(compoundType, index);
     buffer.add(rT);
-    #indexOrCode(buffer.size());
+    #indexOrCode(index);
   };
 
-  private func typesAreEqual(t1 : ShallowCompoundType<ReferenceType>, t2 : ShallowCompoundType<ReferenceType>) : Bool {
-    return t1 == t2;
-  };
-
-  private func buildTypeHash(t : ShallowCompoundType<ReferenceType>) : Hash.Hash {
+  private func buildTypeHash(t : TypeDef) : Hash.Hash {
     switch (t) {
       case (#opt(o)) {
         let h = Int.hash(Types.TypeDefCode.opt);
-        let innerHash = Int.hash(o);
+        let innerHash = buildTypeHash(o);
         combineHash(h, innerHash);
       };
       case (#vector(v)) {
         let h = Int.hash(Types.TypeDefCode.vector);
-        let innerHash = Int.hash(v);
+        let innerHash = buildTypeHash(v);
         combineHash(h, innerHash);
       };
       case (#record(r)) {
         let h = Int.hash(Types.TypeDefCode.record);
-        Array.foldLeft<RecordFieldReferenceType<ReferenceType>, Hash.Hash>(r, h, func (v: Hash.Hash, f: RecordFieldReferenceType<ReferenceType>) : Hash.Hash {
-          let innerHash = Int.hash(f._type);
+        Array.foldLeft<RecordFieldType, Hash.Hash>(r, h, func (v: Hash.Hash, f: RecordFieldType) : Hash.Hash {
+          let innerHash = buildTypeHash(f._type);
           combineHash(combineHash(v, Types.getTagHash(f.tag)), innerHash);
         });
       };
       case (#_func(f)) {
         let h = Int.hash(Types.TypeDefCode._func);
         // TODO
+        1;
       };
       case (#service(s)) {
         let h = Int.hash(Types.TypeDefCode.service);
@@ -420,15 +433,36 @@ module {
       };
       case (#variant(v)) {
         var h = Int.hash(Types.TypeDefCode.variant);
-        Array.foldLeft<VariantOptionReferenceType<ReferenceType>, Hash.Hash>(v, 0, func (h: Hash.Hash, f: VariantOptionReferenceType<ReferenceType>) : Hash.Hash {
-          let innerHash = Int.hash(f._type);
-          combineHash(combineHash(h, Types.getTagHash(f.tag)), innerHash);
+        Array.foldLeft<VariantOptionType, Hash.Hash>(v, 0, func (h: Hash.Hash, o: VariantOptionType) : Hash.Hash {
+          let innerHash = buildTypeHash(o._type);
+          combineHash(combineHash(h, Types.getTagHash(o.tag)), innerHash);
         });
+      };
+      case (#recursiveType(rT)) {
+        buildTypeHash(rT._type);
       };
       case (#recursiveReference(r)) {
         var h = Int.hash(0);
         combineHash(h, Text.hash(r));
       };
+      case (#int) Int.hash(Types.TypeDefCode.int);
+      case (#int8) Int.hash(Types.TypeDefCode.int8);
+      case (#int16) Int.hash(Types.TypeDefCode.int16);
+      case (#int32) Int.hash(Types.TypeDefCode.int32);
+      case (#int64) Int.hash(Types.TypeDefCode.int64);
+      case (#nat) Int.hash(Types.TypeDefCode.nat);
+      case (#nat8) Int.hash(Types.TypeDefCode.nat8);
+      case (#nat16) Int.hash(Types.TypeDefCode.nat16);
+      case (#nat32) Int.hash(Types.TypeDefCode.nat32);
+      case (#nat64) Int.hash(Types.TypeDefCode.nat64);
+      case (#_null) Int.hash(Types.TypeDefCode._null);
+      case (#bool) Int.hash(Types.TypeDefCode.bool);
+      case (#float32) Int.hash(Types.TypeDefCode.float32);
+      case (#float64) Int.hash(Types.TypeDefCode.float64);
+      case (#text) Int.hash(Types.TypeDefCode.text);
+      case (#reserved) Int.hash(Types.TypeDefCode.reserved);
+      case (#empty) Int.hash(Types.TypeDefCode.empty);
+      case (#principal) Int.hash(Types.TypeDefCode.principal);
     };
   };
 
@@ -437,85 +471,93 @@ module {
     seed ^ (value +% 0x9e3779b9 +% (seed << 6) +% (seed >> 2));
   };
 
-  private func encodeValues(buffer : Buffer.Buffer<Nat8>, argTypes: [TypeDef], args : [Value]) {
+  private func encodeValues(buffer : Buffer.Buffer<Nat8>, table: CompoundTypeTable, args : [Value]) {
     var i = 0;
     for (arg in Iter.fromArray(args)) {
-      let t = argTypes[i];
+      encodeValue(buffer, arg, table.typeCodes[i], table.compoundTypes);
       i += 1;
-      encodeValue(buffer, arg, t);
     };
   };
 
-  private func encodeValue(buffer : Buffer.Buffer<Nat8>, value : Value, t : TypeDef) {
-    switch (value) {
-      case (#int(i)) IntX.encodeInt(buffer, i, #signedLEB128);
-      case (#int8(i8)) IntX.encodeInt8(buffer, i8);
-      case (#int16(i16)) IntX.encodeInt16(buffer, i16, #lsb);
-      case (#int32(i32)) IntX.encodeInt32(buffer, i32, #lsb);
-      case (#int64(i64)) IntX.encodeInt64(buffer, i64, #lsb);
-      case (#nat(n)) NatX.encodeNat(buffer, n, #unsignedLEB128);
-      case (#nat8(n8)) NatX.encodeNat8(buffer, n8);
-      case (#nat16(n16)) NatX.encodeNat16(buffer, n16, #lsb);
-      case (#nat32(n32)) NatX.encodeNat32(buffer, n32, #lsb);
-      case (#nat64(n64)) NatX.encodeNat64(buffer, n64, #lsb);
-      case (#_null) {}; // Nothing to encode
-      case (#bool(b)) buffer.add(if (b) 0x01 else 0x00);
-      case (#float32(f)) {
-        let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f32);
-        FloatX.encodeFloatX(buffer, floatX, #lsb);
-      };
-      case (#float64(f)) {
-        let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f64);
-        FloatX.encodeFloatX(buffer, floatX, #lsb);
-      };
-      case (#text(t)) {
-        encodeText(buffer, t);
-      };
-      case (#reserved) {}; // Nothing to encode   TODO allowed?
-      case (#empty) {}; // Nothing to encode   TODO allowed?
-      case (#principal(p)) {
-        switch (p) {
-          case (#opaque) {
-            buffer.add(0x00); // 0 if opaque
-          };
-          case (#transparent(pr)) {
-            buffer.add(0x01); // 1 if transparent
-            let bytes : [Nat8] = Blob.toArray(Principal.toBlob(pr));
-            NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
-            for (b in Iter.fromArray(bytes)) {
-              buffer.add(b); // Encode the raw principal bytes
+  private func encodeValue(buffer : Buffer.Buffer<Nat8>, value : Value, t : ReferenceType, types: [ShallowCompoundType<ReferenceType>]) {
+    if (t < 0) {
+      // TODO validate correct type?
+      return switch (value) {
+        case (#int(i)) IntX.encodeInt(buffer, i, #signedLEB128);
+        case (#int8(i8)) IntX.encodeInt8(buffer, i8);
+        case (#int16(i16)) IntX.encodeInt16(buffer, i16, #lsb);
+        case (#int32(i32)) IntX.encodeInt32(buffer, i32, #lsb);
+        case (#int64(i64)) IntX.encodeInt64(buffer, i64, #lsb);
+        case (#nat(n)) NatX.encodeNat(buffer, n, #unsignedLEB128);
+        case (#nat8(n8)) NatX.encodeNat8(buffer, n8);
+        case (#nat16(n16)) NatX.encodeNat16(buffer, n16, #lsb);
+        case (#nat32(n32)) NatX.encodeNat32(buffer, n32, #lsb);
+        case (#nat64(n64)) NatX.encodeNat64(buffer, n64, #lsb);
+        case (#_null) {}; // Nothing to encode
+        case (#bool(b)) buffer.add(if (b) 0x01 else 0x00);
+        case (#float32(f)) {
+          let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f32);
+          FloatX.encodeFloatX(buffer, floatX, #lsb);
+        };
+        case (#float64(f)) {
+          let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f64);
+          FloatX.encodeFloatX(buffer, floatX, #lsb);
+        };
+        case (#text(t)) {
+          encodeText(buffer, t);
+        };
+        case (#reserved) {}; // Nothing to encode   TODO allowed?
+        case (#empty) {}; // Nothing to encode   TODO allowed?
+        case (#principal(p)) {
+          switch (p) {
+            case (#opaque) {
+              buffer.add(0x00); // 0 if opaque
             };
+            case (#transparent(pr)) {
+              buffer.add(0x01); // 1 if transparent
+              let bytes : [Nat8] = Blob.toArray(Principal.toBlob(pr));
+              NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
+              for (b in Iter.fromArray(bytes)) {
+                buffer.add(b); // Encode the raw principal bytes
+              };
+            }
           }
-        }
-      };
+        };
+        case (_) Debug.trap("Invalid type definition. Doesn't match value");
+      }
+    };
+
+    // Compound types
+    let i = Int.abs(t);
+    switch (value) {
       case (#opt(o)) {
         switch (o) {
           case (null) buffer.add(0x00); // Indicate there is no value
           case (?v) {
             buffer.add(0x01); // Indicate there is a value
-            let innerType : TypeDef = switch(t) {
+            let innerType : ReferenceType = switch(types[i]) {
               case (#opt(inner)) inner;
               case (_) Debug.trap("Invalid type definition. Doesn't match value");
             };
-            encodeValue(buffer, v, innerType); // Encode value
+            encodeValue(buffer, v, innerType, types); // Encode value
           };
         };
       };
       case (#vector(ve)) {
-        let innerType : TypeDef = switch(t) {
+        let innerType : ReferenceType = switch(types[i]) {
           case (#vector(inner)) inner;
-              case (_) Debug.trap("Invalid type definition. Doesn't match value");
+          case (_) Debug.trap("Invalid type definition. Doesn't match value");
         };
         NatX.encodeNat(buffer, ve.size(), #unsignedLEB128); // Encode the length of the vector
         for (v in Iter.fromArray(ve)) {
-          encodeValue(buffer, v, innerType); // Encode each value
+          encodeValue(buffer, v, innerType, types); // Encode each value
         };
       };
       case (#record(r)) {
-        let innerTypes : TrieMap.TrieMap<Tag, TypeDef> = switch(t) {
+        let innerTypes : TrieMap.TrieMap<Tag, ReferenceType> = switch(types[i]) {
           case (#record(inner)) {
-            let innerKV = Iter.fromArray(Array.map<RecordFieldType, (Tag, TypeDef)>(inner, func(i: RecordFieldType) : (Tag, TypeDef) { (i.tag, i._type) }));
-            TrieMap.fromEntries<Tag, TypeDef>(innerKV, Types.tagsAreEqual, Types.getTagHash);
+            let innerKV = Iter.fromArray(Array.map<RecordFieldReferenceType<ReferenceType>, (Tag, ReferenceType)>(inner, func(i) { (i.tag, i._type) }));
+            TrieMap.fromEntries<Tag, ReferenceType>(innerKV, Types.tagsAreEqual, Types.getTagHash);
           };
           case (_) Debug.trap("Invalid type definition. Doesn't match value");
         };
@@ -527,7 +569,7 @@ module {
             case (?t) t;
             case (_) Debug.trap("Invalid type definition. Doesn't match value");
           };
-          encodeValue(buffer, kv.value, innerType); // Encode each value in order
+          encodeValue(buffer, kv.value, innerType, types); // Encode each value in order
         };
       };
       case (#_func(f)) {
@@ -556,24 +598,25 @@ module {
           };
           case (#transparent(principal)) {
             buffer.add(1); // 1 if not opaque
-            encodeValue(buffer, #principal(#transparent(principal)), #principal); // Encode the service principal
+            encodeValue(buffer, #principal(#transparent(principal)), Types.TypeDefCode.principal, types); // Encode the service principal
           };
         };
       };
       case (#variant(v)) {
-        let innerTypes : [VariantOptionType] = switch(t) {
+        let innerTypes : [Types.VariantOptionReferenceType<ReferenceType>] = switch(types[i]) {
           case (#variant(inner)) inner;
           case (_) Debug.trap("Invalid type definition. Doesn't match value");
         };
-        var typeIndex : ?Nat = firstIndexOf<VariantOptionType>(innerTypes, func (t) { Types.tagsAreEqual(t.tag, v.tag) });
+        var typeIndex : ?Nat = firstIndexOf<Types.VariantOptionReferenceType<ReferenceType>>(innerTypes, func (t) { Types.tagsAreEqual(t.tag, v.tag) });
         switch(typeIndex) {
           case (?i) {
             NatX.encodeNat(buffer, i, #unsignedLEB128); // Encode tag value
-            encodeValue(buffer, v.value, innerTypes[i]._type); // Encode value
+            encodeValue(buffer, v.value, innerTypes[i]._type, types); // Encode value
           };
           case (null) Debug.trap("Invalid type definition. Doesn't match value");
         };
       };
+      case (_) Debug.trap("Invalid type definition. Doesn't match value");
     };
   };
 

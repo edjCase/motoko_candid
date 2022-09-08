@@ -215,9 +215,30 @@ module {
       #service(#transparent(Principal.fromText("")))
     );
 
+
+    // Duplicate Types are merged
+    test(
+      [],
+      #variant([
+        {
+          tag=#name("1");
+          _type=#opt(#int)
+        },
+        {
+          tag=#name("dup1");
+          _type=#opt(#int)
+        }
+      ]),
+      #variant({
+        tag=#name("1");
+        value=#opt(?#int(1))
+      })
+    )
+
   };
 
   private func test(bytes: [Nat8], t : Types.TypeDef, arg: Types.Value) {
+    Debug.print("Testing...\nType:  " # debug_show(t) # "\nValue: " # debug_show(arg));
     let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([t], [arg]));
     if (not areEqual(bytes, actualBytes)) {
         Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
@@ -238,6 +259,7 @@ module {
         if (not Types.valuesAreEqual(arg, actualValue)) {
           Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualValue));
         };
+        Debug.print("Passed\n");
       }
     };
   };
