@@ -21,6 +21,7 @@ import InternalTypes "./InternalTypes";
 import TransparencyState "./TransparencyState";
 import FuncMode "./FuncMode";
 import TypeCode "./TypeCode";
+import Arg "./Arg";
 
 module {
 
@@ -36,22 +37,29 @@ module {
   type VariantOptionReferenceType<T> = InternalTypes.VariantOptionReferenceType<T>;
 
 
-  public func encode(argTypes: [Type.Type], args : [Value.Value]) : Blob {
+  public func encode(args: [Arg.Arg]) : Blob {
     let buffer = Buffer.Buffer<Nat8>(10);
-    encodeToBuffer(buffer, argTypes, args);
+    encodeToBuffer(buffer, args);
     Blob.fromArray(buffer.toArray());
   };
 
-  public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, argTypes: [Type.Type], args : [Value.Value]) {
+  public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg.Arg]) {
     // "DIDL" prefix
     buffer.add(0x44);
     buffer.add(0x49);
     buffer.add(0x44);
     buffer.add(0x4c);
 
-    let table : CompoundTypeTable = getTypeInfo(argTypes);
+    let argTypes = Buffer.Buffer<Type.Type>(args.size());
+    let argValues = Buffer.Buffer<Value.Value>(args.size());
+    for (arg in Iter.fromArray(args)) {
+      argTypes.add(arg._type);
+      argValues.add(arg.value);
+    };
+
+    let table : CompoundTypeTable = getTypeInfo(argTypes.toArray());
     encodeTypes(buffer, table); // Encode compound type table + primitive types
-    encodeValues(buffer, table, args); // Encode all the values for the types
+    encodeValues(buffer, table, argValues.toArray()); // Encode all the values for the types
   };
 
   type CompoundTypeTable = {

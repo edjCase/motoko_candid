@@ -12,6 +12,7 @@ import Nat8 "mo:base/Nat8";
 import Principal "mo:base/Principal";
 import Type "../src/Type";
 import Value "../src/Value";
+import Arg "../src/Arg";
 
 module {
   public func run() {
@@ -276,11 +277,11 @@ module {
 
   private func test(bytes: [Nat8], t : Type.Type, arg: Value.Value) {
     Debug.print("Testing...\nType:  " # debug_show(t) # "\nValue: " # debug_show(arg) # "\nExpected Bytes: " # toHexString(bytes));
-    let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([t], [arg]));
+    let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([{value=arg; _type=t}]));
     if (not areEqual(bytes, actualBytes)) {
         Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
     };
-    let args : ?[(Value.Value, Type.Type)] = Decoder.decode(Blob.fromArray(bytes));
+    let args : ?[Arg.Arg] = Decoder.decode(Blob.fromArray(bytes));
     switch(args){
       case (null) {
         Debug.trap("Failed decoding.\nExpected Type: " # debug_show(t) # "\nExpected Value: " # debug_show(arg) # "\nBytes: " # toHexString(bytes))
@@ -289,12 +290,12 @@ module {
         if (args.size() != 1) {
           Debug.trap("Too many args: " # Nat.toText(args.size()));
         };
-        let (actualValue: Value.Value, actualType: Type.Type) = args[0];
-        if (not Type.equal(t, actualType)) {
-          Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualType));
+        let actualArg: Arg.Arg = args[0];
+        if (not Type.equal(t, actualArg._type)) {
+          Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualArg._type));
         };
-        if (not Value.equal(arg, actualValue)) {
-          Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualValue));
+        if (not Value.equal(arg, actualArg.value)) {
+          Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualArg.value));
         };
         Debug.print("Passed\n");
       }

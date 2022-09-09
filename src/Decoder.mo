@@ -21,17 +21,16 @@ import Tag "./Tag";
 import InternalTypes "./InternalTypes";
 import TransparencyState "./TransparencyState";
 import FuncMode "./FuncMode";
+import Arg "./Arg";
 
 module {
 
-  type Value = Value.Value;
   type ShallowCompoundType<T> = InternalTypes.ShallowCompoundType<T>;
   type Tag = Tag.Tag;
   type ReferenceType = InternalTypes.ReferenceType;
 
-
   // TODO change ? to be result with specific error messages
-  public func decode(candidBytes: Blob) : ?[(Value, Type.Type)] {
+  public func decode(candidBytes: Blob) : ?[Arg.Arg] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));
       let prefix1: Nat8 = bytes.next()!;
@@ -45,21 +44,21 @@ module {
       };
       let (compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) = decodeTypes(bytes)!;
       let types : [Type.Type] = buildTypes(compoundTypes, argTypes)!;
-      let values: [Value] = decodeValues(bytes, types)!;
+      let values: [Value.Value] = decodeValues(bytes, types)!;
       var i = 0;
-      let valueTypes = Buffer.Buffer<(Value, Type.Type)>(types.size());
+      let valueTypes = Buffer.Buffer<Arg.Arg>(types.size());
       for (t in Iter.fromArray(types)) {
         let v = values[i];
-        valueTypes.add((v, t));
+        valueTypes.add({value=v; _type=t});
         i += 1;
       };
       valueTypes.toArray();
     };
   };
 
-  private func decodeValues(bytes: Iter.Iter<Nat8>, types: [Type.Type]) : ?[Value] {
+  private func decodeValues(bytes: Iter.Iter<Nat8>, types: [Type.Type]) : ?[Value.Value] {
     do ? {
-      let valueBuffer = Buffer.Buffer<Value>(types.size());
+      let valueBuffer = Buffer.Buffer<Value.Value>(types.size());
       let referencedTypes = TrieMap.TrieMap<Text, Type.Type>(Text.equal, Text.hash);
       for (t in Iter.fromArray(types)) {
         addReferenceTypes(t, referencedTypes);
@@ -95,7 +94,7 @@ module {
     }
   };
 
-  private func decodeValue(bytes: Iter.Iter<Nat8>, t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) : ?Value {
+  private func decodeValue(bytes: Iter.Iter<Nat8>, t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) : ?Value.Value {
     do ? {
       switch (t) {
         case (#int) #int(IntX.decodeInt(bytes, #signedLEB128)!);
@@ -146,13 +145,13 @@ module {
         };
         case (#vector(v)) {
           let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
-          let buffer = Buffer.Buffer<Value>(length);
+          let buffer = Buffer.Buffer<Value.Value>(length);
           let innerType: Type.Type = switch (t) {
             case (#vector(vv)) vv;
             case (_) return null; // type definition doesnt match
           };
           for (i in Iter.range(0, length - 1)) {
-            let innerValue: Value = decodeValue(bytes, innerType, referencedTypes)!;
+            let innerValue: Value.Value = decodeValue(bytes, innerType, referencedTypes)!;
             buffer.add(innerValue);
           };
           #vector(buffer.toArray());
@@ -164,7 +163,7 @@ module {
           };
           let buffer = Buffer.Buffer<Value.RecordFieldValue>(innerTypes.size());
           for (innerType in Iter.fromArray(innerTypes)) {
-            let innerValue: Value = decodeValue(bytes, innerType._type, referencedTypes)!;
+            let innerValue: Value.Value = decodeValue(bytes, innerType._type, referencedTypes)!;
             buffer.add({tag=innerType.tag; value=innerValue});
           };
           #record(buffer.toArray());
@@ -184,7 +183,7 @@ module {
           };
           let optionIndex = NatX.decodeNat(bytes, #unsignedLEB128)!; // Get index of option chosen
           let innerType: Type.VariantOptionType = innerTypes[optionIndex];
-          let innerValue: Value = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
+          let innerValue: Value.Value = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
           #variant({tag=innerType.tag; value=innerValue});
         };
         case (#recursiveType(rT)) {
