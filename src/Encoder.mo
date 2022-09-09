@@ -25,7 +25,6 @@ import TypeCode "./TypeCode";
 module {
 
   type Tag = Tag.Tag;
-  type TypeDef = Type.TypeDef;
   type RecordFieldValue = Value.RecordFieldValue;
   type PrimitiveType = Type.PrimitiveType;
   type CompoundType = Type.CompoundType;
@@ -37,13 +36,13 @@ module {
   type VariantOptionReferenceType<T> = InternalTypes.VariantOptionReferenceType<T>;
 
 
-  public func encode(argTypes: [TypeDef], args : [Value.Value]) : Blob {
+  public func encode(argTypes: [Type.Type], args : [Value.Value]) : Blob {
     let buffer = Buffer.Buffer<Nat8>(10);
     encodeToBuffer(buffer, argTypes, args);
     Blob.fromArray(buffer.toArray());
   };
 
-  public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, argTypes: [TypeDef], args : [Value.Value]) {
+  public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, argTypes: [Type.Type], args : [Value.Value]) {
     // "DIDL" prefix
     buffer.add(0x44);
     buffer.add(0x49);
@@ -148,15 +147,15 @@ module {
     #recursiveReference: Text;
   };
   type NonRecursiveCompoundType = {
-    #opt : TypeDef;
-    #vector : TypeDef;
+    #opt : Type.Type;
+    #vector : Type.Type;
     #record : [RecordFieldType];
     #variant : [VariantOptionType];
     #_func : Type.FuncType;
     #service : Type.ServiceType;
   };
   
-  private func getTypeInfo(args : [TypeDef]) : CompoundTypeTable {
+  private func getTypeInfo(args : [Type.Type]) : CompoundTypeTable {
     let shallowTypes = Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>(args.size());
     let recursiveTypeIndexMap = TrieMap.TrieMap<Text, Nat>(Text.equal, Text.hash);
     let uniqueTypeMap = TrieMap.TrieMap<NonRecursiveCompoundType, Nat>(Type.equal, Type.hash);
@@ -229,7 +228,7 @@ module {
               });
             };
             case (#service(s)) {
-              let methods = Array.map<(Id, ReferenceOrRecursiveType), (Id, ReferenceType)>(s.methods, func (m) {
+              let methods = Array.map<(Text, ReferenceOrRecursiveType), (Text, ReferenceType)>(s.methods, func (m) {
                 let t = mapArg(m.1);
                 (m.0, t);
               });
@@ -256,7 +255,7 @@ module {
     buffer: Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>,
     recursiveTypes: TrieMap.TrieMap<Text, Nat>,
     uniqueTypeMap: TrieMap.TrieMap<NonRecursiveCompoundType, Nat>,
-    t: TypeDef) : ReferenceOrRecursiveType {
+    t: Type.Type) : ReferenceOrRecursiveType {
     
     // TODO How to switch case on 'NonRecursiveCompoundType'
     let compoundType: NonRecursiveCompoundType = switch (t) {
@@ -332,7 +331,7 @@ module {
         #variant(options);
       };
       case (#_func(fn)) {
-        let funcTypesToReference = func (types : [TypeDef]) : [ReferenceOrRecursiveType] {          
+        let funcTypesToReference = func (types : [Type.Type]) : [ReferenceOrRecursiveType] {          
           let refTypeBuffer = Buffer.Buffer<ReferenceOrRecursiveType>(types.size());
           for (t in Iter.fromArray(types)) {
             let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, t);
@@ -349,7 +348,7 @@ module {
         });
       };
       case (#service(s)) {
-        let methods : [(Id, ReferenceOrRecursiveType)] = Array.map<(Id, Types.FuncType), (Id, ReferenceOrRecursiveType)>(s.methods, func (a: (Id, Types.FuncType)) : (Id, ReferenceOrRecursiveType) {
+        let methods : [(Text, ReferenceOrRecursiveType)] = Array.map<(Text, Type.FuncType), (Text, ReferenceOrRecursiveType)>(s.methods, func (a: (Text, Type.FuncType)) : (Text, ReferenceOrRecursiveType) {
           let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, #_func(a.1));
           (a.0, refType);
         });
@@ -437,7 +436,7 @@ module {
         let innerTypes : TrieMap.TrieMap<Tag, ReferenceType> = switch(types[i]) {
           case (#record(inner)) {
             let innerKV = Iter.fromArray(Array.map<RecordFieldReferenceType<ReferenceType>, (Tag, ReferenceType)>(inner, func(i) { (i.tag, i._type) }));
-            TrieMap.fromEntries<Tag, ReferenceType>(innerKV, Types.tagsAreEqual, Types.getTagHash);
+            TrieMap.fromEntries<Tag, ReferenceType>(innerKV, Tag.equal, Tag.hash);
           };
           case (_) Debug.trap("Invalid type definition. Doesn't match value");
         };
@@ -453,8 +452,8 @@ module {
         };
       };
       case (#_func(f)) {
-        encodeTransparencyState<Types.Func>(buffer, f, func(b, f) {
-          let innerType : Types.FuncReferenceType<ReferenceType> = switch(types[i]) {
+        encodeTransparencyState<Value.Func>(buffer, f, func(b, f) {
+          let innerType : InternalTypes.FuncReferenceType<ReferenceType> = switch(types[i]) {
             case (#_func(inner)) inner;
             case (_) Debug.trap("Invalid type definition. Doesn't match value");
           };
@@ -464,11 +463,11 @@ module {
       };
       case (#service(s)) encodeTransparencyState<Principal>(buffer, s, encodePrincipal);
       case (#variant(v)) {
-        let innerTypes : [Types.VariantOptionReferenceType<ReferenceType>] = switch(types[i]) {
+        let innerTypes : [InternalTypes.VariantOptionReferenceType<ReferenceType>] = switch(types[i]) {
           case (#variant(inner)) inner;
           case (_) Debug.trap("Invalid type definition. Doesn't match value");
         };
-        var typeIndex : ?Nat = firstIndexOf<Types.VariantOptionReferenceType<ReferenceType>>(innerTypes, func (t) { Types.tagsAreEqual(t.tag, v.tag) });
+        var typeIndex : ?Nat = firstIndexOf<InternalTypes.VariantOptionReferenceType<ReferenceType>>(innerTypes, func (t) { Tag.equal(t.tag, v.tag) });
         switch(typeIndex) {
           case (?i) {
             NatX.encodeNat(buffer, i, #unsignedLEB128); // Encode tag value

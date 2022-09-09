@@ -11,13 +11,13 @@ import Text "mo:base/Text";
 module {
   public type FuncType = {
     modes : [FuncMode.FuncMode];
-    argTypes : [TypeDef];
-    returnTypes : [TypeDef];
+    argTypes : [Type];
+    returnTypes : [Type];
   };
 
   public type RecordFieldType = {
     tag : Tag.Tag;
-    _type : TypeDef;
+    _type : Type;
   };
 
   public type VariantOptionType = RecordFieldType;
@@ -48,8 +48,8 @@ module {
   };
 
   public type CompoundType = {
-    #opt : TypeDef;
-    #vector : TypeDef;
+    #opt : Type;
+    #vector : Type;
     #record : [RecordFieldType];
     #variant : [VariantOptionType];
     #_func : FuncType;
@@ -58,10 +58,10 @@ module {
     #recursiveReference : Text;
   };
 
-  public type TypeDef = CompoundType or PrimitiveType;
+  public type Type = CompoundType or PrimitiveType;
 
 
-  public func equal(v1: TypeDef, v2: TypeDef): Bool {
+  public func equal(v1: Type, v2: Type): Bool {
     switch (v1) {
       case (#opt(o1)) {
         let o2 = switch (v2) {
@@ -163,7 +163,7 @@ module {
     };
   };
 
-  private func hash(t : TypeDef) : Hash.Hash {
+  public func hash(t : Type) : Hash.Hash {
     switch (t) {
       case (#opt(o)) {
         let h = Int.hash(TypeCode.opt);
@@ -184,10 +184,10 @@ module {
       };
       case (#_func(f)) {
         let h = Int.hash(TypeCode._func);
-        let h2 = Array.foldLeft<TypeDef, Hash.Hash>(f.argTypes, h, func (v: Hash.Hash, f: TypeDef) : Hash.Hash {
+        let h2 = Array.foldLeft<Type, Hash.Hash>(f.argTypes, h, func (v: Hash.Hash, f: Type) : Hash.Hash {
           combineHash(v, hash(f));
         });
-        let h3 = Array.foldLeft<TypeDef, Hash.Hash>(f.returnTypes, h2, func (v: Hash.Hash, f: TypeDef) : Hash.Hash {
+        let h3 = Array.foldLeft<Type, Hash.Hash>(f.returnTypes, h2, func (v: Hash.Hash, f: Type) : Hash.Hash {
           combineHash(v, hash(f));
         });
         Array.foldLeft<FuncMode.FuncMode, Hash.Hash>(f.modes, h3, func (v: Hash.Hash, f: FuncMode.FuncMode) : Hash.Hash {

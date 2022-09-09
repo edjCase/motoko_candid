@@ -25,14 +25,13 @@ import FuncMode "./FuncMode";
 module {
 
   type Value = Value.Value;
-  type TypeDef = Type.TypeDef;
   type ShallowCompoundType<T> = InternalTypes.ShallowCompoundType<T>;
   type Tag = Tag.Tag;
   type ReferenceType = InternalTypes.ReferenceType;
 
 
   // TODO change ? to be result with specific error messages
-  public func decode(candidBytes: Blob) : ?[(Value, TypeDef)] {
+  public func decode(candidBytes: Blob) : ?[(Value, Type.Type)] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));
       let prefix1: Nat8 = bytes.next()!;
@@ -45,10 +44,10 @@ module {
         return null;
       };
       let (compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) = decodeTypes(bytes)!;
-      let types : [TypeDef] = buildTypes(compoundTypes, argTypes)!;
+      let types : [Type.Type] = buildTypes(compoundTypes, argTypes)!;
       let values: [Value] = decodeValues(bytes, types)!;
       var i = 0;
-      let valueTypes = Buffer.Buffer<(Value, TypeDef)>(types.size());
+      let valueTypes = Buffer.Buffer<(Value, Type.Type)>(types.size());
       for (t in Iter.fromArray(types)) {
         let v = values[i];
         valueTypes.add((v, t));
@@ -58,10 +57,10 @@ module {
     };
   };
 
-  private func decodeValues(bytes: Iter.Iter<Nat8>, types: [TypeDef]) : ?[Value] {
+  private func decodeValues(bytes: Iter.Iter<Nat8>, types: [Type.Type]) : ?[Value] {
     do ? {
       let valueBuffer = Buffer.Buffer<Value>(types.size());
-      let referencedTypes = TrieMap.TrieMap<Text, TypeDef>(Text.equal, Text.hash);
+      let referencedTypes = TrieMap.TrieMap<Text, Type.Type>(Text.equal, Text.hash);
       for (t in Iter.fromArray(types)) {
         addReferenceTypes(t, referencedTypes);
       };
@@ -73,7 +72,7 @@ module {
     };
   };
 
-  private func addReferenceTypes(t: TypeDef, referencedTypes: TrieMap.TrieMap<Text, TypeDef>) {
+  private func addReferenceTypes(t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) {
     switch (t) {
       case (#opt(o)) {
         addReferenceTypes(o, referencedTypes);
@@ -96,7 +95,7 @@ module {
     }
   };
 
-  private func decodeValue(bytes: Iter.Iter<Nat8>, t: TypeDef, referencedTypes: TrieMap.TrieMap<Text, TypeDef>) : ?Value {
+  private func decodeValue(bytes: Iter.Iter<Nat8>, t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) : ?Value {
     do ? {
       switch (t) {
         case (#int) #int(IntX.decodeInt(bytes, #signedLEB128)!);
@@ -135,7 +134,7 @@ module {
           switch (optionalByte) {
             case (0x00) #opt(null);
             case (0x01) {
-              let innerType: TypeDef = switch (t) {
+              let innerType: Type.Type = switch (t) {
                 case (#opt(o)) o;
                 case (_) return null; // type definition doesnt match
               };
@@ -148,7 +147,7 @@ module {
         case (#vector(v)) {
           let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
           let buffer = Buffer.Buffer<Value>(length);
-          let innerType: TypeDef = switch (t) {
+          let innerType: Type.Type = switch (t) {
             case (#vector(vv)) vv;
             case (_) return null; // type definition doesnt match
           };
@@ -192,7 +191,7 @@ module {
           decodeValue(bytes, rT._type, referencedTypes)!;
         };
         case (#recursiveReference(rI)) {
-          let rType: TypeDef = referencedTypes.get(rI)!;
+          let rType: Type.Type = referencedTypes.get(rI)!;
           decodeValue(bytes, rType, referencedTypes)!;
         };
       };
@@ -247,18 +246,18 @@ module {
     }
   };
 
-  private func buildTypes(compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) : ?[TypeDef] {
+  private func buildTypes(compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) : ?[Type.Type] {
     do ? {
-      let typeDefs = Buffer.Buffer<TypeDef>(argTypes.size());
+      let types = Buffer.Buffer<Type.Type>(argTypes.size());
       for (argType in Iter.fromArray(argTypes)) {
-        let typeDef: TypeDef = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, (Text, Bool)>(Nat.equal, Int.hash))!;
-        typeDefs.add(typeDef);
+        let t: Type.Type = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, (Text, Bool)>(Nat.equal, Int.hash))!;
+        types.add(t);
       };
-      typeDefs.toArray();
+      types.toArray();
     }
   };
 
-  private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, (Text, Bool)>) : ?TypeDef {
+  private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, (Text, Bool)>) : ?Type.Type {
     do ? {
       switch (indexOrCode) {
         case (-1) #_null;
@@ -302,17 +301,17 @@ module {
           let refType = compoundTypes[index];
           let t: Type.CompoundType = switch (refType) {
             case (#opt(o)) {
-              let inner: TypeDef = buildType(o, compoundTypes, parentTypes)!;
+              let inner: Type.Type = buildType(o, compoundTypes, parentTypes)!;
               #opt(inner);
             };
             case (#vector(ve)) {
-              let inner: TypeDef = buildType(ve, compoundTypes, parentTypes)!;
+              let inner: Type.Type = buildType(ve, compoundTypes, parentTypes)!;
               #vector(inner);
             };
             case (#record(r)) {
               let fields = Buffer.Buffer<Type.RecordFieldType>(r.size());
               for (fieldRefType in Iter.fromArray(r)) {
-                let fieldType: TypeDef = buildType(fieldRefType._type, compoundTypes, parentTypes)!;
+                let fieldType: Type.Type = buildType(fieldRefType._type, compoundTypes, parentTypes)!;
                 fields.add({tag=fieldRefType.tag; _type=fieldType});
               };
               #record(fields.toArray());
@@ -320,25 +319,25 @@ module {
             case (#variant(va)) {
               let options = Buffer.Buffer<Type.VariantOptionType>(va.size());
               for (optionRefType in Iter.fromArray(va)) {
-                let optionType: TypeDef = buildType(optionRefType._type, compoundTypes, parentTypes)!;
+                let optionType: Type.Type = buildType(optionRefType._type, compoundTypes, parentTypes)!;
                 options.add({tag=optionRefType.tag; _type=optionType});
               };
               #variant(options.toArray());
             };
             case (#_func(f)) {
               let modes: [FuncMode.FuncMode] = f.modes;
-              let map = func (a: [ReferenceType]) : ?[TypeDef] {
+              let map = func (a: [ReferenceType]) : ?[Type.Type] {
                 do ? {
-                  let newO = Buffer.Buffer<TypeDef>(a.size());
+                  let newO = Buffer.Buffer<Type.Type>(a.size());
                   for (item in Iter.fromArray(a)) {
-                    let t: TypeDef = buildType(item, compoundTypes, parentTypes)!;
+                    let t: Type.Type = buildType(item, compoundTypes, parentTypes)!;
                     newO.add(t);
                   };
                   newO.toArray();
                 }
               };
-              let argTypes: [TypeDef] = map(f.argTypes)!;
-              let returnTypes: [TypeDef] = map(f.returnTypes)!;
+              let argTypes: [Type.Type] = map(f.argTypes)!;
+              let returnTypes: [Type.Type] = map(f.returnTypes)!;
               #_func({
                 argTypes=argTypes;
                 modes=modes;
@@ -348,7 +347,7 @@ module {
             case (#service(s)) {
               let methods = Buffer.Buffer<(Text, Type.FuncType)>(s.methods.size());
               for (method in Iter.fromArray(s.methods)) {
-                let t: TypeDef = buildType(method.1, compoundTypes, parentTypes)!;
+                let t: Type.Type = buildType(method.1, compoundTypes, parentTypes)!;
                 switch (t) {
                   case (#_func(f)) {
                     methods.add((method.0, f));
