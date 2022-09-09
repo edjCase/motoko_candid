@@ -10,7 +10,7 @@ import Nat "mo:base/Nat";
 import Float "mo:base/Float";
 import Nat8 "mo:base/Nat8";
 import Principal "mo:base/Principal";
-import Types "../src/Types";
+import Type "../src/Type";
 
 module {
   public func run() {
@@ -273,13 +273,13 @@ module {
 
   };
 
-  private func test(bytes: [Nat8], t : Types.TypeDef, arg: Types.Value) {
+  private func test(bytes: [Nat8], t : Type.Type, arg: Types.Value) {
     Debug.print("Testing...\nType:  " # debug_show(t) # "\nValue: " # debug_show(arg) # "\nExpected Bytes: " # toHexString(bytes));
     let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([t], [arg]));
     if (not areEqual(bytes, actualBytes)) {
         Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
     };
-    let args : ?[(Types.Value, Types.TypeDef)] = Decoder.decode(Blob.fromArray(bytes));
+    let args : ?[(Types.Value, Type.Type)] = Decoder.decode(Blob.fromArray(bytes));
     switch(args){
       case (null) {
         Debug.trap("Failed decoding.\nExpected Type: " # debug_show(t) # "\nExpected Value: " # debug_show(arg) # "\nBytes: " # toHexString(bytes))
@@ -288,7 +288,7 @@ module {
         if (args.size() != 1) {
           Debug.trap("Too many args: " # Nat.toText(args.size()));
         };
-        let (actualValue: Types.Value, actualType: Types.TypeDef) = args[0];
+        let (actualValue: Types.Value, actualType: Type.Type) = args[0];
         if (not Types.typesAreEqual(t, actualType)) {
           Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualType));
         };
