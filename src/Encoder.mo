@@ -397,12 +397,12 @@ module {
         case (#_null) {}; // Nothing to encode
         case (#bool(b)) buffer.add(if (b) 0x01 else 0x00);
         case (#float32(f)) {
-          let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f32);
-          FloatX.encodeFloatX(buffer, floatX, #lsb);
+          let floatX : FloatX.FloatX = FloatX.fromFloat(f, #f32);
+          FloatX.encode(buffer, floatX, #lsb);
         };
         case (#float64(f)) {
-          let floatX : FloatX.FloatX = FloatX.floatToFloatX(f, #f64);
-          FloatX.encodeFloatX(buffer, floatX, #lsb);
+          let floatX : FloatX.FloatX = FloatX.fromFloat(f, #f64);
+          FloatX.encode(buffer, floatX, #lsb);
         };
         case (#text(t)) {
           encodeText(buffer, t);

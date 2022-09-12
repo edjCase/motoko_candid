@@ -113,11 +113,15 @@ module {
           #bool(nextByte != 0x00);
         };
         case (#float32) {
-          let fX = FloatX.decodeFloatX(bytes, #f32, #lsb)!;
-          let f = FloatX.floatXToFloat(fX);
+          let fX = FloatX.decode(bytes, #f32, #lsb)!;
+          let f = FloatX.toFloat(fX);
           #float32(f);
         };
-        case (#float64) #float64(FloatX.decodeFloat(bytes, #lsb)!);
+        case (#float64) {
+          let fX = FloatX.decode(bytes, #f64, #lsb)!;
+          let f = FloatX.toFloat(fX);
+          #float64(f);
+        };
         case (#text) {
           let t: Text = decodeText(bytes)!;
           #text(t);

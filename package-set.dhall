@@ -8,7 +8,7 @@ let
     [
       {
          name = "xtendedNumbers"
-         , version = "v0.0.4"
+         , version = "v0.0.5"
          , repo = "https://github.com/gekctek/motoko_numbers"
          , dependencies = [] : List Text
       }
