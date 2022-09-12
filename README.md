@@ -1,3 +1,29 @@
+# Overview
+
+This is a library that enables encoding/decoding of bytes to candid values
+
+# Package
+
+### Vessel
+
+Currently there is no official package but there is a manual process:
+
+1. Add the following to the `additions` list in the `package-set.dhall`
+
+```
+{
+    name = "candid"
+    , version = "{{Version}}"
+    , repo = "https://github.com/gekctek/motoko_candid"
+    , dependencies = [] : List Text
+}
+```
+
+Where `{{Version}}` should be replaced with the latest release from https://github.com/Gekctek/motoko_numbers/releases/
+
+2. Add `candid` as a value in the dependencies list
+3. Run `./build.sh` which runs the vessel command to install the package
+
 # Usage
 
 Example of `call_raw` usage:
@@ -25,6 +51,8 @@ func call_raw(p : Principal, m : Text, a : Blob) : async Blob {
 };
 ```
 
+# API
+
 # Library Devlopment:
 
 ## First time setup
@@ -35,8 +63,7 @@ https://github.com/dfinity/vessel
 
 ## Building
 
-To build, run the `./build.sh` file.
-It uses the entry point of
+To build, run the `./build.sh` file. It will output wasm files to the `./build` directory
 
 ## Testing
 
