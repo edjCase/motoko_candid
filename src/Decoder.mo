@@ -29,7 +29,6 @@ module {
   type Tag = Tag.Tag;
   type ReferenceType = InternalTypes.ReferenceType;
 
-  // TODO change ? to be result with specific error messages
   public func decode(candidBytes: Blob) : ?[Arg.Arg] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));

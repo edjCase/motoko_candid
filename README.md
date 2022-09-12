@@ -53,6 +53,56 @@ func call_raw(p : Principal, m : Text, a : Blob) : async Blob {
 
 # API
 
+## Decoder
+
+`decode(candidBytes: Blob) : ?[Arg.Arg]`
+
+Decodes a series of bytes to CandiArgs. If invalid candid bytes, will return null
+
+## Encoder
+
+`encode(args: [Arg.Arg]) : Blob`
+
+Encodes an array of candid arguments to bytes
+
+`encodeToBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg.Arg]) : ()`
+
+Encodes an array of candid arguments to a byte buffer
+
+## Tag
+
+`hash(t : Tag) : Nat32`
+
+Hashes a tag name to a Nat32. If already hashed, will use hash value
+
+`hashName(name : Text) : Nat32`
+
+Hashes a tag name to a Nat32
+
+`equal(t1: Tag, t2: Tag) : Bool`
+
+Checks for equality between two tags
+
+`compare(t1: Tag, t2: Tag) : Order.Order`
+
+Compares order between two tags
+
+## Type
+
+`equal(v1: Type, v2: Type): Bool`
+
+Checks for equality between two types
+
+`hash(t : Type) : Hash.Hash`
+
+Hashes a type to a Nat32
+
+## Value
+
+`equal(v1: Value, v2: Value): Bool`
+
+Checks for equality between two values
+
 # Library Devlopment:
 
 ## First time setup
