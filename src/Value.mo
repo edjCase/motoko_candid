@@ -1,9 +1,10 @@
+import Array "mo:base/Array";
+import FloatX "mo:xtendedNumbers/FloatX";
+import InternalTypes "InternalTypes";
+import Iter "mo:base/Iter";
+import Order "mo:base/Order";
 import Tag "./Tag";
 import TransparencyState "./TransparencyState";
-import FloatX "mo:xtendedNumbers/FloatX";
-import Order "mo:base/Order";
-import Iter "mo:base/Iter";
-import Array "mo:base/Array";
 
 module {
   type Tag = Tag.Tag;
@@ -86,40 +87,32 @@ module {
           case(#vector(ve)) ve;
           case (_) return false;
         };
-        if (ve1.size() != ve2.size()) {
-          return false;
-        };
-        for (i in Iter.range(0, ve1.size() - 1)) {
-          if (not equal(ve1[i], ve2[i])) {
-            return false;
-          };
-        };
-        true;
+        InternalTypes.arraysAreEqual(
+          ve1,
+          ve2,
+          null, // Dont reorder
+          equal
+        );
       };
       case (#record(r1)) {
         let r2 = switch (v2) {
           case(#record(r2)) r2;
           case (_) return false;
         };
-        if (r1.size() != r2.size()) {
-          return false;
-        };
-        let orderFunc = func (r1: RecordFieldValue, r2: RecordFieldValue) : Order.Order {
-          Tag.compare(r1.tag, r2.tag)
-        };
-        let orderedR1 = Array.sort(r1, orderFunc);
-        let orderedR2 = Array.sort(r2, orderFunc);
-        for (i in Iter.range(0, orderedR1.size() - 1)) {
-          let r1I = orderedR1[i];
-          let r2I = orderedR2[i];
-          if (not Tag.equal(r1I.tag, r2I.tag)) {
-            return false;
-          };
-          if (not equal(r1I.value, r2I.value)) {
-            return false;
-          };
-        };
-        true;
+
+        InternalTypes.arraysAreEqual(
+          r1,
+          r2,
+          ?(func (t1: RecordFieldValue, t2: RecordFieldValue) : Order.Order {
+            Tag.compare(t1.tag, t2.tag)
+          }),
+          func (t1: RecordFieldValue, t2: RecordFieldValue) : Bool {
+            if (not Tag.equal(t1.tag, t2.tag)) {
+              return false;
+            };
+            equal(t1.value, t2.value);
+          }
+        );
       };
       case (#variant(va1)) {
         let va2 = switch (v2) {
@@ -139,16 +132,28 @@ module {
           case(#_func(f2)) f2;
           case (_) return false;
         };
-        // TODO
-        f1 == f2;
+        switch (f1){
+          case (#opaque) f2 == #opaque;
+          case (#transparent(t1)) {
+            switch (f2) {
+              case (#opaque) false;
+              case (#transparent(t2)) {
+                if (t1.method != t2.method) {
+                  false;
+                } else {
+                  t1.service == t2.service
+                }
+              };
+            }
+          }
+        }
       };
       case (#service(s1)) {
         let s2 = switch (v2) {
           case(#service(s2)) s2;
           case (_) return false;
         };
-        // TODO
-        s1 == s2;
+        s1 == s2
       };
       case (a) a == v2;
     };

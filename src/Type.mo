@@ -1,12 +1,15 @@
-import FuncMode "./FuncMode";
-import Tag "./Tag";
-import TypeCode "./TypeCode";
-import Order "mo:base/Order";
 import Array "mo:base/Array";
-import Iter "mo:base/Iter";
+import FuncMode "./FuncMode";
 import Hash "mo:base/Hash";
 import Int "mo:base/Int";
+import InternalTypes "./InternalTypes";
+import Iter "mo:base/Iter";
+import Nat "mo:base/Nat";
+import Order "mo:base/Order";
+import Tag "./Tag";
 import Text "mo:base/Text";
+import TypeCode "./TypeCode";
+import Util "InternalTypes";
 
 module {
   public type FuncType = {
@@ -82,73 +85,111 @@ module {
           case(#record(r2)) r2;
           case (_) return false;
         };
-        if (r1.size() != r2.size()) {
-          return false;
-        };
-        let orderFunc = func (r1: RecordFieldType, r2: RecordFieldType) : Order.Order {
-          Tag.compare(r1.tag, r2.tag)
-        };
-        let orderedR1 = Array.sort(r1, orderFunc);
-        let orderedR2 = Array.sort(r2, orderFunc);
-        for (i in Iter.range(0, orderedR1.size() - 1)) {
-          let r1I = orderedR1[i];
-          let r2I = orderedR2[i];
-          if (not Tag.equal(r1I.tag, r2I.tag)) {
-            return false;
-          };
-          if (not equal(r1I._type, r2I._type)) {
-            return false;
-          };
-        };
-        true;
+
+        InternalTypes.arraysAreEqual(
+          r1,
+          r2,
+          ?(func (t1: RecordFieldType, t2: RecordFieldType) : Order.Order {
+            Tag.compare(t1.tag, t2.tag)
+          }),
+          func (t1: RecordFieldType, t2: RecordFieldType) : Bool {
+            if (not Tag.equal(t1.tag, t2.tag)) {
+              return false;
+            };
+            equal(t1._type, t2._type);
+          }
+        );
       };
       case (#variant(va1)) {
         let va2 = switch (v2) {
           case(#variant(va2)) va2;
           case (_) return false;
         };
-        if (va1.size() != va2.size()) {
-          return false;
-        };
-        let orderFunc = func (t1: VariantOptionType, t2: VariantOptionType) : Order.Order {
-          Tag.compare(t1.tag, t2.tag)
-        };
-        let orderedVa1 = Array.sort(va1, orderFunc);
-        let orderedVa2 = Array.sort(va2, orderFunc);
-        for (i in Iter.range(0, orderedVa1.size() - 1)) {
-          let va1I = orderedVa1[i];
-          let va2I = orderedVa2[i];
-          if (not Tag.equal(va1I.tag, va2I.tag)) {
-            return false;
-          };
-          if (not equal(va1I._type, va2I._type)) {
-            return false;
-          };
-        };
-        true;
+        InternalTypes.arraysAreEqual(
+          va1,
+          va2,
+          ?(func (t1: VariantOptionType, t2: VariantOptionType) : Order.Order {
+            Tag.compare(t1.tag, t2.tag)
+          }),
+          func (t1: VariantOptionType, t2: VariantOptionType) : Bool {
+            if (not Tag.equal(t1.tag, t2.tag)) {
+              return false;
+            };
+            equal(t1._type, t2._type);
+          }
+        );
       };
       case (#_func(f1)) {
         let f2 = switch (v2) {
           case(#_func(f2)) f2;
           case (_) return false;
         };
-        // TODO
-        f1 == f2;
+
+        // Mode Types
+        let getModeValue = func (m: FuncMode.FuncMode) : Nat {
+          switch (m){
+            case (#oneWay) 2;
+            case (#_query) 1;
+          }
+        };
+        let modesAreEqual = InternalTypes.arraysAreEqual(
+          f1.modes,
+          f2.modes,
+          ?(func (m1: FuncMode.FuncMode, m2: FuncMode.FuncMode) : Order.Order {
+            let mv1: Nat = getModeValue(m1);
+            let mv2: Nat = getModeValue(m2);
+            Nat.compare(mv1, mv2); 
+          }),
+          func (m1: FuncMode.FuncMode, m2: FuncMode.FuncMode) : Bool {
+            m1 == m2
+          }
+        );
+        if (not modesAreEqual) {
+          return false;
+        };
+        // Arg Types
+        let argTypesAreEqual = InternalTypes.arraysAreEqual(
+          f1.argTypes,
+          f2.argTypes,
+          null, // Dont reorder
+          equal
+        );
+        if (not argTypesAreEqual) {
+          return false;
+        };
+        // Return types
+        InternalTypes.arraysAreEqual(
+          f1.returnTypes,
+          f2.returnTypes,
+          null, // Dont reorder
+          equal
+        );
       };
       case (#service(s1)) {
         let s2 = switch (v2) {
           case(#service(s2)) s2;
           case (_) return false;
         };
-        // TODO
-        s1 == s2;
+        Util.arraysAreEqual(
+          s1.methods,
+          s2.methods,
+          ?(func (t1: (Text, FuncType), t2: (Text, FuncType)) : Order.Order{
+            Text.compare(t1.0, t2.0)
+          }),
+          func (t1: (Text, FuncType), t2: (Text, FuncType)) : Bool {
+            if (t1.0 != t1.0) {
+              false;
+            } else {
+              equal(#_func(t1.1), #_func(t2.1));
+            }
+          }
+        )
       };
       case (#recursiveType(r1)) {
         let r2 = switch (v2) {
           case(#recursiveType(r2)) r2;
           case (_) return false;
         };
-        // TODO names can be different
         equal(r1._type, r2._type);
       };
       case (#recursiveReference(r1)) {
@@ -156,7 +197,6 @@ module {
           case(#recursiveReference(r2)) r2;
           case (_) return false;
         };
-        // TODO names can be different
         true;
       };
       case (a) a == v2;
@@ -242,4 +282,5 @@ module {
     // From `C++ Boost Hash Combine`
     seed ^ (value +% 0x9e3779b9 +% (seed << 6) +% (seed >> 2));
   };
+
 }

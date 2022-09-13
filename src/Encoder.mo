@@ -76,7 +76,7 @@ module {
       encodeType(buffer, t);
     };
 
-    IntX.encodeInt(buffer, table.typeCodes.size(), #signedLEB128); // Encode type count // TODO validate this is a SIGNED leb128, not unsigned
+    NatX.encodeNat(buffer, table.typeCodes.size(), #unsignedLEB128); // Encode type count
     for (code in Iter.fromArray(table.typeCodes)) {
       IntX.encodeInt(buffer, code, #signedLEB128); // Encode each type
     };
@@ -100,7 +100,7 @@ module {
         IntX.encodeInt(buffer, v, #signedLEB128); // Encode reference index or type code
       };
       case (#record(r)) {
-        IntX.encodeInt(buffer, r.size(), #signedLEB128); // Encode field count // TODO validate should be signed
+        NatX.encodeNat(buffer, r.size(), #unsignedLEB128); // Encode field count
         for (field in Iter.fromArray(r)) {
           NatX.encodeNat(buffer, Nat32.toNat(Tag.hash(field.tag)), #unsignedLEB128); // Encode field tag
           IntX.encodeInt(buffer, field._type, #signedLEB128); // Encode reference index or type code
@@ -141,7 +141,7 @@ module {
         }
       };
       case (#variant(v)) {
-        IntX.encodeInt(buffer, v.size(), #signedLEB128); // Encode option count // TODO validate should be signed
+        NatX.encodeNat(buffer, v.size(), #unsignedLEB128); // Encode option count
         for (option in Iter.fromArray(v)) {
           NatX.encodeNat(buffer, Nat32.toNat(Tag.hash(option.tag)), #unsignedLEB128); // Encode option tag
           IntX.encodeInt(buffer, option._type, #signedLEB128); // Encode reference index or type code
@@ -188,7 +188,6 @@ module {
     };
   };
 
-  // TODO Deduplicate this and `buildShallowArgs`
   private func resolveArg(
     arg: ReferenceOrRecursiveType,
     shallowTypeArray: [ShallowCompoundType<ReferenceOrRecursiveType>],
@@ -265,7 +264,6 @@ module {
     uniqueTypeMap: TrieMap.TrieMap<NonRecursiveCompoundType, Nat>,
     t: Type.Type) : ReferenceOrRecursiveType {
     
-    // TODO How to switch case on 'NonRecursiveCompoundType'
     let compoundType: NonRecursiveCompoundType = switch (t) {
       case (#opt(o)) #opt(o);
       case (#vector(v)) #vector(v);
@@ -382,7 +380,6 @@ module {
 
   private func encodeValue(buffer : Buffer.Buffer<Nat8>, value : Value.Value, t : ReferenceType, types: [ShallowCompoundType<ReferenceType>]) {
     if (t < 0) {
-      // TODO validate correct type?
       return switch (value) {
         case (#int(i)) IntX.encodeInt(buffer, i, #signedLEB128);
         case (#int8(i8)) IntX.encodeInt8(buffer, i8);
@@ -407,8 +404,8 @@ module {
         case (#text(t)) {
           encodeText(buffer, t);
         };
-        case (#reserved) {}; // Nothing to encode   TODO allowed?
-        case (#empty) {}; // Nothing to encode   TODO allowed?
+        case (#reserved) {}; // Nothing to encode 
+        case (#empty) {}; // Nothing to encode
         case (#principal(p)) encodeTransparencyState<Principal>(buffer, p, encodePrincipal);
         case (_) Debug.trap("Invalid type definition. Doesn't match value");
       }

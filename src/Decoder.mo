@@ -400,7 +400,7 @@ module {
       let referenceType: ReferenceType = decodeReferenceType(bytes)!;
       switch(referenceType) {
         // opt
-        case (-18) { // TODO why cant use TypeCode.opt here
+        case (-18) {
           let innerRef = decodeReferenceType(bytes)!;
           #opt(innerRef);
         };
