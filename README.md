@@ -1,3 +1,13 @@
+## Funding
+
+This library was originally incentivized by [ICDevs](https://ICDevs.org). You
+can view more about the bounty on the
+[forum](https://forum.dfinity.org/t/icdevs-org-bounty-18-cbor-and-candid-motoko-parser-3-000/11398)
+or [website](https://icdevs.org/bounties/2022/02/22/CBOR-and-Candid-Motoko-Parser.html). The
+bounty was funded by The ICDevs.org commuity and the award paid to
+@Gekctek. If you use this library and gain value from it, please consider
+a [donation](https://icdevs.org/donations.html) to ICDevs.
+
 # Overview
 
 This is a library that enables encoding/decoding of bytes to candid values
