@@ -252,11 +252,15 @@ module {
     do ? {
       let types = Buffer.Buffer<Type.Type>(argTypes.size());
       for (argType in Iter.fromArray(argTypes)) {
-        let t: Type.Type = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, (Text, Bool)>(Nat.equal, Int.hash))!;
+        let t: Type.Type = buildType(argType, compoundTypes, TrieMap.TrieMap<Nat, (Text, Bool)>(Nat.equal, hashNat))!;
         types.add(t);
       };
       types.toArray();
     }
+  };
+
+  private func hashNat(n: Nat) : Hash.Hash {
+    Nat32.fromIntWrap(n) // Convert to Nat32 with overflow
   };
 
   private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, (Text, Bool)>) : ?Type.Type {
