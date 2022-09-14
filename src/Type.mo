@@ -2,6 +2,7 @@ import Array "mo:base/Array";
 import FuncMode "./FuncMode";
 import Hash "mo:base/Hash";
 import Int "mo:base/Int";
+import Nat32 "mo:base/Nat32";
 import InternalTypes "./InternalTypes";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
@@ -206,24 +207,24 @@ module {
   public func hash(t : Type) : Hash.Hash {
     switch (t) {
       case (#opt(o)) {
-        let h = Int.hash(TypeCode.opt);
+        let h = hashTypeCode(TypeCode.opt);
         let innerHash = hash(o);
         combineHash(h, innerHash);
       };
       case (#vector(v)) {
-        let h = Int.hash(TypeCode.vector);
+        let h = hashTypeCode(TypeCode.vector);
         let innerHash = hash(v);
         combineHash(h, innerHash);
       };
       case (#record(r)) {
-        let h = Int.hash(TypeCode.record);
+        let h = hashTypeCode(TypeCode.record);
         Array.foldLeft<RecordFieldType, Hash.Hash>(r, h, func (v: Hash.Hash, f: RecordFieldType) : Hash.Hash {
           let innerHash = hash(f._type);
           combineHash(combineHash(v, Tag.hash(f.tag)), innerHash);
         });
       };
       case (#_func(f)) {
-        let h = Int.hash(TypeCode._func);
+        let h = hashTypeCode(TypeCode._func);
         let h2 = Array.foldLeft<Type, Hash.Hash>(f.argTypes, h, func (v: Hash.Hash, f: Type) : Hash.Hash {
           combineHash(v, hash(f));
         });
@@ -231,20 +232,20 @@ module {
           combineHash(v, hash(f));
         });
         Array.foldLeft<FuncMode.FuncMode, Hash.Hash>(f.modes, h3, func (v: Hash.Hash, f: FuncMode.FuncMode) : Hash.Hash {
-          combineHash(v, Int.hash(switch(f){
+          combineHash(v, switch(f){
             case (#_query) 1;
             case (#oneWay) 2;
-          }));
+          });
         });
       };
       case (#service(s)) {
-        let h = Int.hash(TypeCode.service);
+        let h = hashTypeCode(TypeCode.service);
         Array.foldLeft<(Text, FuncType), Hash.Hash>(s.methods, h, func (v: Hash.Hash, f: (Text, FuncType)) : Hash.Hash {
           combineHash(h, combineHash(Text.hash(f.0), hash(#_func(f.1))));
         });
       };
       case (#variant(v)) {
-        var h = Int.hash(TypeCode.variant);
+        var h = hashTypeCode(TypeCode.variant);
         Array.foldLeft<VariantOptionType, Hash.Hash>(v, 0, func (h: Hash.Hash, o: VariantOptionType) : Hash.Hash {
           let innerHash = hash(o._type);
           combineHash(combineHash(h, Tag.hash(o.tag)), innerHash);
@@ -254,28 +255,31 @@ module {
         hash(rT._type);
       };
       case (#recursiveReference(r)) {
-        var h = Int.hash(0);
-        combineHash(h, Text.hash(r));
+        Text.hash(r);
       };
-      case (#int) Int.hash(TypeCode.int);
-      case (#int8) Int.hash(TypeCode.int8);
-      case (#int16) Int.hash(TypeCode.int16);
-      case (#int32) Int.hash(TypeCode.int32);
-      case (#int64) Int.hash(TypeCode.int64);
-      case (#nat) Int.hash(TypeCode.nat);
-      case (#nat8) Int.hash(TypeCode.nat8);
-      case (#nat16) Int.hash(TypeCode.nat16);
-      case (#nat32) Int.hash(TypeCode.nat32);
-      case (#nat64) Int.hash(TypeCode.nat64);
-      case (#_null) Int.hash(TypeCode._null);
-      case (#bool) Int.hash(TypeCode.bool);
-      case (#float32) Int.hash(TypeCode.float32);
-      case (#float64) Int.hash(TypeCode.float64);
-      case (#text) Int.hash(TypeCode.text);
-      case (#reserved) Int.hash(TypeCode.reserved);
-      case (#empty) Int.hash(TypeCode.empty);
-      case (#principal) Int.hash(TypeCode.principal);
+      case (#int) hashTypeCode(TypeCode.int);
+      case (#int8) hashTypeCode(TypeCode.int8);
+      case (#int16) hashTypeCode(TypeCode.int16);
+      case (#int32) hashTypeCode(TypeCode.int32);
+      case (#int64) hashTypeCode(TypeCode.int64);
+      case (#nat) hashTypeCode(TypeCode.nat);
+      case (#nat8) hashTypeCode(TypeCode.nat8);
+      case (#nat16) hashTypeCode(TypeCode.nat16);
+      case (#nat32) hashTypeCode(TypeCode.nat32);
+      case (#nat64) hashTypeCode(TypeCode.nat64);
+      case (#_null) hashTypeCode(TypeCode._null);
+      case (#bool) hashTypeCode(TypeCode.bool);
+      case (#float32) hashTypeCode(TypeCode.float32);
+      case (#float64) hashTypeCode(TypeCode.float64);
+      case (#text) hashTypeCode(TypeCode.text);
+      case (#reserved) hashTypeCode(TypeCode.reserved);
+      case (#empty) hashTypeCode(TypeCode.empty);
+      case (#principal) hashTypeCode(TypeCode.principal);
     };
+  };
+
+  private func hashTypeCode(i: Int) : Hash.Hash {
+    Nat32.fromNat(Int.abs(i));
   };
 
   private func combineHash(seed: Hash.Hash, value: Hash.Hash) : Hash.Hash {
