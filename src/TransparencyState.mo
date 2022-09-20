@@ -1,7 +1,7 @@
 
 module {
   public type TransparencyState<T> = {
-    #opaque;
+    #opaque: [Nat8];
     #transparent : T;
   };
 }

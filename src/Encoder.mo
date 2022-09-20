@@ -487,7 +487,7 @@ module {
 
   private func encodeTransparencyState<T>(buffer: Buffer.Buffer<Nat8>, r: TransparencyState.TransparencyState<T>, encodeInner: (Buffer.Buffer<Nat8>, T) -> ()) {
     switch (r) {
-      case (#opaque) {
+      case (#opaque(o)) {
         buffer.add(0x00); // 0 if opaque
       };
       case (#transparent(t)) {

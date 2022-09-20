@@ -29,6 +29,52 @@ module {
   type Tag = Tag.Tag;
   type ReferenceType = InternalTypes.ReferenceType;
 
+  type TransparencyStateNoRefs<T> = {
+    #opaque;
+    #transparent : T;
+  };
+  
+  type RecordFieldValueNoRefs = {
+    tag: Tag;
+    value: ValueNoRefs;
+  };
+
+  type VariantOptionValueNoRefs = RecordFieldValueNoRefs;
+
+  type FuncNoRefs = {
+    service : TransparencyStateNoRefs<Principal>;
+    method : Text;
+  };
+
+
+
+  type ValueNoRefs = { 
+    #int : Int;
+    #int8 : Int8;
+    #int16 : Int16;
+    #int32 : Int32;
+    #int64 : Int64;
+    #nat : Nat;
+    #nat8 : Nat8;
+    #nat16 : Nat16;
+    #nat32 : Nat32;
+    #nat64 : Nat64;
+    #_null;
+    #bool : Bool;
+    #float32 : Float;
+    #float64 : Float;
+    #text : Text;
+    #reserved;
+    #empty;
+    #opt : ?ValueNoRefs;
+    #vector : [ValueNoRefs];
+    #record : [RecordFieldValueNoRefs];
+    #variant : VariantOptionValueNoRefs;
+    #_func : TransparencyStateNoRefs<FuncNoRefs>;
+    #service : TransparencyStateNoRefs<Principal>;
+    #principal : TransparencyStateNoRefs<Principal>;
+  };
+
   public func decode(candidBytes: Blob) : ?[Arg.Arg] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));
@@ -43,7 +89,9 @@ module {
       };
       let (compoundTypes: [ShallowCompoundType<ReferenceType>], argTypes: [Int]) = decodeTypes(bytes)!;
       let types : [Type.Type] = buildTypes(compoundTypes, argTypes)!;
-      let values: [Value.Value] = decodeValues(bytes, types)!;
+      let valuesNoRefs: [ValueNoRefs] = decodeValues(bytes, types)!;
+      let values: [Value.Value] = buildValues(valuesNoRefs, bytes)!;
+
       var i = 0;
       let valueTypes = Buffer.Buffer<Arg.Arg>(types.size());
       for (t in Iter.fromArray(types)) {
@@ -55,9 +103,9 @@ module {
     };
   };
 
-  private func decodeValues(bytes: Iter.Iter<Nat8>, types: [Type.Type]) : ?[Value.Value] {
+  private func decodeValues(bytes: Iter.Iter<Nat8>, types: [Type.Type]) : ?[ValueNoRefs] {
     do ? {
-      let valueBuffer = Buffer.Buffer<Value.Value>(types.size());
+      let valueBuffer = Buffer.Buffer<ValueNoRefs>(types.size());
       let referencedTypes = TrieMap.TrieMap<Text, Type.Type>(Text.equal, Text.hash);
       for (t in Iter.fromArray(types)) {
         addReferenceTypes(t, referencedTypes);
@@ -93,7 +141,120 @@ module {
     }
   };
 
-  private func decodeValue(bytes: Iter.Iter<Nat8>, t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) : ?Value.Value {
+  private func buildValues(noRefs: [ValueNoRefs], bytes: Iter.Iter<Nat8>): ?[Value.Value] {
+    do ? {
+      let values = Buffer.Buffer<Value.Value>(noRefs.size());
+      for (v in Iter.fromArray(noRefs)) {
+        let value: Value.Value = buildValue(v, bytes)!;
+        values.add(value);
+      };
+      values.toArray();
+    }
+  };
+
+  private func buildValue(noRef: ValueNoRefs, bytes: Iter.Iter<Nat8>): ?Value.Value {
+    do ? {
+      switch (noRef) {
+        case (#int(i)) #int(i);
+        case (#int8(i8)) #int8(i8);
+        case (#int16(i16)) #int16(i16);
+        case (#int32(i32)) #int32(i32);
+        case (#int64(i64)) #int64(i64);
+        case (#nat(n)) #nat(n);
+        case (#nat8(n8)) #nat8(n8);
+        case (#nat16(n16)) #nat16(n16);
+        case (#nat32(n32)) #nat32(n32);
+        case (#nat64(n64)) #nat64(n64);
+        case (#_null) #_null;
+        case (#bool(b)) #bool(b);
+        case (#float32(f32)) #float32(f32);
+        case (#float64(f64)) #float64(f64);
+        case (#text(t)) #text(t);
+        case (#reserved) #reserved;
+        case (#empty) #empty;
+        case (#principal(p)) {
+          let r: TransparencyState.TransparencyState<Principal> = resolveReference(p);
+          #principal(r);
+        };
+        case (#opt(o)) {
+          let optionalByte = bytes.next()!;
+          switch (optionalByte) {
+            case (0x00) #opt(null);
+            case (0x01) {
+              let innerType: Type.Type = switch (t) {
+                case (#opt(o)) o;
+                case (_) return null; // type definition doesnt match
+              };
+              let v = decodeValue(bytes, innerType, referencedTypes)!;
+              #opt(?v);
+            };
+            case (_) return null;
+          };
+        };
+        case (#vector(v)) {
+          let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
+          let buffer = Buffer.Buffer<ValueNoRefs>(length);
+          let innerType: Type.Type = switch (t) {
+            case (#vector(vv)) vv;
+            case (_) return null; // type definition doesnt match
+          };
+          for (i in Iter.range(0, length - 1)) {
+            let innerValue: ValueNoRefs = decodeValue(bytes, innerType, referencedTypes)!;
+            buffer.add(innerValue);
+          };
+          #vector(buffer.toArray());
+        };
+        case (#record(r)) {
+          let innerTypes: [Type.RecordFieldType] = switch (t) {
+            case (#record(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
+            case (_) return null; // type definition doesnt match
+          };
+          let buffer = Buffer.Buffer<RecordFieldValueNoRefs>(innerTypes.size());
+          for (innerType in Iter.fromArray(innerTypes)) {
+            let innerValue: ValueNoRefs = decodeValue(bytes, innerType._type, referencedTypes)!;
+            buffer.add({tag=innerType.tag; value=innerValue});
+          };
+          #record(buffer.toArray());
+        };
+        case (#_func(f)) {
+          let f = decodeReference(bytes, decodeFunc)!;
+          #_func(f);
+        };
+        case (#service(s)) {
+          let principal: TransparencyStateNoRefs<Principal> = decodeReference(bytes, decodePrincipal)!;
+          #service(principal);
+        };
+        case (#variant(v)) {
+          let innerTypes: [Type.VariantOptionType] = switch (t) {
+            case (#variant(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
+            case (_) return null; // type definition doesnt match
+          };
+          let optionIndex = NatX.decodeNat(bytes, #unsignedLEB128)!; // Get index of option chosen
+          let innerType: Type.VariantOptionType = innerTypes[optionIndex];
+          let innerValue: ValueNoRefs = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
+          #variant({tag=innerType.tag; value=innerValue});
+        };
+        case (#recursiveType(rT)) {
+          decodeValue(bytes, rT._type, referencedTypes)!;
+        };
+        case (#recursiveReference(rI)) {
+          let rType: Type.Type = referencedTypes.get(rI)!;
+          decodeValue(bytes, rType, referencedTypes)!;
+        };
+      }
+    }
+  };
+
+  private func resolveReference<T>(r: TransparencyStateNoRefs<T>): TransparencyState.TransparencyState<T> {
+    switch (r) {
+      case (#opaque) {
+
+      };
+      
+    }
+  };
+
+  private func decodeValue(bytes: Iter.Iter<Nat8>, t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) : ?ValueNoRefs {
     do ? {
       switch (t) {
         case (#int) #int(IntX.decodeInt(bytes, #signedLEB128)!);
@@ -128,7 +289,7 @@ module {
         case (#reserved) #reserved;
         case (#empty) #empty;
         case (#principal) {
-          let p: TransparencyState.TransparencyState<Principal> = decodeReference(bytes, decodePrincipal)!;
+          let p: TransparencyStateNoRefs<Principal> = decodeReference(bytes, decodePrincipal)!;
           #principal(p);
         };
         case (#opt(o)) {
@@ -148,13 +309,13 @@ module {
         };
         case (#vector(v)) {
           let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
-          let buffer = Buffer.Buffer<Value.Value>(length);
+          let buffer = Buffer.Buffer<ValueNoRefs>(length);
           let innerType: Type.Type = switch (t) {
             case (#vector(vv)) vv;
             case (_) return null; // type definition doesnt match
           };
           for (i in Iter.range(0, length - 1)) {
-            let innerValue: Value.Value = decodeValue(bytes, innerType, referencedTypes)!;
+            let innerValue: ValueNoRefs = decodeValue(bytes, innerType, referencedTypes)!;
             buffer.add(innerValue);
           };
           #vector(buffer.toArray());
@@ -164,9 +325,9 @@ module {
             case (#record(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
             case (_) return null; // type definition doesnt match
           };
-          let buffer = Buffer.Buffer<Value.RecordFieldValue>(innerTypes.size());
+          let buffer = Buffer.Buffer<RecordFieldValueNoRefs>(innerTypes.size());
           for (innerType in Iter.fromArray(innerTypes)) {
-            let innerValue: Value.Value = decodeValue(bytes, innerType._type, referencedTypes)!;
+            let innerValue: ValueNoRefs = decodeValue(bytes, innerType._type, referencedTypes)!;
             buffer.add({tag=innerType.tag; value=innerValue});
           };
           #record(buffer.toArray());
@@ -176,7 +337,7 @@ module {
           #_func(f);
         };
         case (#service(s)) {
-          let principal: TransparencyState.TransparencyState<Principal> = decodeReference(bytes, decodePrincipal)!;
+          let principal: TransparencyStateNoRefs<Principal> = decodeReference(bytes, decodePrincipal)!;
           #service(principal);
         };
         case (#variant(v)) {
@@ -186,7 +347,7 @@ module {
           };
           let optionIndex = NatX.decodeNat(bytes, #unsignedLEB128)!; // Get index of option chosen
           let innerType: Type.VariantOptionType = innerTypes[optionIndex];
-          let innerValue: Value.Value = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
+          let innerValue: ValueNoRefs = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
           #variant({tag=innerType.tag; value=innerValue});
         };
         case (#recursiveType(rT)) {
@@ -200,7 +361,7 @@ module {
     };
   };
 
-  private func decodeFunc(bytes: Iter.Iter<Nat8>): ?Value.Func {
+  private func decodeFunc(bytes: Iter.Iter<Nat8>): ?FuncNoRefs {
     do ? {
       let service = decodeReference(bytes, decodePrincipal)!;
       let methodName = decodeText(bytes)!;
@@ -216,7 +377,7 @@ module {
     }
   };
 
-  private func decodeReference<T>(bytes: Iter.Iter<Nat8>, innerDecode: (Iter.Iter<Nat8>) -> ?T) : ?TransparencyState.TransparencyState<T> {
+  private func decodeReference<T>(bytes: Iter.Iter<Nat8>, innerDecode: (Iter.Iter<Nat8>) -> ?T) : ?TransparencyStateNoRefs<T> {
     do ? {
       let transparentByte = bytes.next()!;
       switch (transparentByte) {

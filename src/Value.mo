@@ -2,6 +2,7 @@ import Array "mo:base/Array";
 import FloatX "mo:xtendedNumbers/FloatX";
 import InternalTypes "InternalTypes";
 import Iter "mo:base/Iter";
+import Nat8 "mo:base/Nat8";
 import Order "mo:base/Order";
 import Tag "./Tag";
 import TransparencyState "./TransparencyState";
@@ -133,10 +134,17 @@ module {
           case (_) return false;
         };
         switch (f1){
-          case (#opaque) f2 == #opaque;
+          case (#opaque(o1)) {
+            switch (f2) {
+              case (#opaque(o2)) {
+                InternalTypes.arraysAreEqual(o1, o2, null, Nat8.equal)
+              };
+              case (#transparent(t)) false;
+            }
+          };
           case (#transparent(t1)) {
             switch (f2) {
-              case (#opaque) false;
+              case (#opaque(o2)) false;
               case (#transparent(t2)) {
                 if (t1.method != t2.method) {
                   false;
