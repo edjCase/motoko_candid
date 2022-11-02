@@ -30,12 +30,12 @@ module {
 
 
   public type ShallowCompoundType<TReference> = {
-    #opt : TReference;
-    #vector : TReference;
-    #record : [RecordFieldReferenceType<TReference>];
-    #variant : [VariantOptionReferenceType<TReference>];
-    #_func : FuncReferenceType<TReference>;
-    #service : ServiceReferenceType<TReference>;
+    #Option : TReference;
+    #Vector : TReference;
+    #Record : [RecordFieldReferenceType<TReference>];
+   #Variant : [VariantOptionReferenceType<TReference>];
+    #Func : FuncReferenceType<TReference>;
+    #Service : ServiceReferenceType<TReference>;
   };
 
 

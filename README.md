@@ -53,8 +53,8 @@ func call_raw(p : Principal, m : Text, a : Blob) : async Blob {
     // Return result
     let returnArgs: [Arg.Arg] = [
         {
-            _type=#bool;
-            value=#bool(true)
+            _type=#Bool;
+            value=#Bool(true)
         }
     ];
     Encoder.encode(returnArgs);
@@ -134,7 +134,6 @@ Currently there are no testing frameworks and testing will stop at the first bro
 
 ## TODO
 
-- How to properly escape special words like 'func'. Currently doing '\_func'
 - Opaque reference byte encoding/decoding
 - Error messaging vs null return type for decoding
 - Better/Documented error messages

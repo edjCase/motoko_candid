@@ -72,15 +72,15 @@ module {
 
   private func addReferenceTypes(t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) {
     switch (t) {
-      case (#opt(o)) {
+      case (#Option(o)) {
         addReferenceTypes(o, referencedTypes);
       };
-      case (#variant(options)) {
+      case (#Variant(options)) {
         for (option in Iter.fromArray(options)) {
           addReferenceTypes(option._type, referencedTypes);
         };
       };
-      case (#record(fields)) {
+      case (#Record(fields)) {
         for (field in Iter.fromArray(fields)) {
           addReferenceTypes(field._type, referencedTypes);
         };
@@ -96,72 +96,72 @@ module {
   private func decodeValue(bytes: Iter.Iter<Nat8>, t: Type.Type, referencedTypes: TrieMap.TrieMap<Text, Type.Type>) : ?Value.Value {
     do ? {
       switch (t) {
-        case (#int) #int(IntX.decodeInt(bytes, #signedLEB128)!);
-        case (#int8) #int8(IntX.decodeInt8(bytes, #lsb)!);
-        case (#int16) #int16(IntX.decodeInt16(bytes, #lsb)!);
-        case (#int32) #int32(IntX.decodeInt32(bytes, #lsb)!);
-        case (#int64) #int64(IntX.decodeInt64(bytes, #lsb)!);
-        case (#nat) #nat(NatX.decodeNat(bytes, #unsignedLEB128)!);
-        case (#nat8) #nat8(NatX.decodeNat8(bytes, #lsb)!);
-        case (#nat16) #nat16(NatX.decodeNat16(bytes, #lsb)!);
-        case (#nat32) #nat32(NatX.decodeNat32(bytes, #lsb)!);
-        case (#nat64) #nat64(NatX.decodeNat64(bytes, #lsb)!);
-        case (#_null) #_null;
-        case (#bool) {
+        case (#Int) #Int(IntX.decodeInt(bytes, #signedLEB128)!);
+        case (#Int8) #Int8(IntX.decodeInt8(bytes, #lsb)!);
+        case (#Int16) #Int16(IntX.decodeInt16(bytes, #lsb)!);
+        case (#Int32) #Int32(IntX.decodeInt32(bytes, #lsb)!);
+        case (#Int64) #Int64(IntX.decodeInt64(bytes, #lsb)!);
+        case (#Nat) #Nat(NatX.decodeNat(bytes, #unsignedLEB128)!);
+        case (#Nat8) #Nat8(NatX.decodeNat8(bytes, #lsb)!);
+        case (#Nat16) #Nat16(NatX.decodeNat16(bytes, #lsb)!);
+        case (#Nat32) #Nat32(NatX.decodeNat32(bytes, #lsb)!);
+        case (#Nat64) #Nat64(NatX.decodeNat64(bytes, #lsb)!);
+        case (#Null) #Null;
+        case (#Bool) {
           let nextByte: Nat8 = bytes.next()!;
-          #bool(nextByte != 0x00);
+          #Bool(nextByte != 0x00);
         };
-        case (#float32) {
+        case (#Float32) {
           let fX = FloatX.decode(bytes, #f32, #lsb)!;
           let f = FloatX.toFloat(fX);
-          #float32(f);
+          #Float32(f);
         };
-        case (#float64) {
+        case (#Float64) {
           let fX = FloatX.decode(bytes, #f64, #lsb)!;
           let f = FloatX.toFloat(fX);
-          #float64(f);
+          #Float64(f);
         };
-        case (#text) {
+        case (#Text) {
           let t: Text = decodeText(bytes)!;
-          #text(t);
+          #Text(t);
         };
-        case (#reserved) #reserved;
-        case (#empty) #empty;
-        case (#principal) {
+        case (#Reserved) #Reserved;
+        case (#Empty) #Empty;
+        case (#Principal) {
           let p: TransparencyState.TransparencyState<Principal> = decodeReference(bytes, decodePrincipal)!;
-          #principal(p);
+          #Principal(p);
         };
-        case (#opt(o)) {
+        case (#Option(o)) {
           let optionalByte = bytes.next()!;
           switch (optionalByte) {
-            case (0x00) #opt(null);
+            case (0x00) #Option(null);
             case (0x01) {
               let innerType: Type.Type = switch (t) {
-                case (#opt(o)) o;
+                case (#Option(o)) o;
                 case (_) return null; // type definition doesnt match
               };
               let v = decodeValue(bytes, innerType, referencedTypes)!;
-              #opt(?v);
+              #Option(?v);
             };
             case (_) return null;
           };
         };
-        case (#vector(v)) {
+        case (#Vector(v)) {
           let length : Nat = NatX.decodeNat(bytes, #unsignedLEB128)!;
           let buffer = Buffer.Buffer<Value.Value>(length);
           let innerType: Type.Type = switch (t) {
-            case (#vector(vv)) vv;
+            case (#Vector(vv)) vv;
             case (_) return null; // type definition doesnt match
           };
           for (i in Iter.range(0, length - 1)) {
             let innerValue: Value.Value = decodeValue(bytes, innerType, referencedTypes)!;
             buffer.add(innerValue);
           };
-          #vector(buffer.toArray());
+          #Vector(buffer.toArray());
         };
-        case (#record(r)) {
+        case (#Record(r)) {
           let innerTypes: [Type.RecordFieldType] = switch (t) {
-            case (#record(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
+            case (#Record(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
             case (_) return null; // type definition doesnt match
           };
           let buffer = Buffer.Buffer<Value.RecordFieldValue>(innerTypes.size());
@@ -169,25 +169,25 @@ module {
             let innerValue: Value.Value = decodeValue(bytes, innerType._type, referencedTypes)!;
             buffer.add({tag=innerType.tag; value=innerValue});
           };
-          #record(buffer.toArray());
+          #Record(buffer.toArray());
         };
-        case (#_func(f)) {
+        case (#Func(f)) {
           let f = decodeReference(bytes, decodeFunc)!;
-          #_func(f);
+          #Func(f);
         };
-        case (#service(s)) {
+        case (#Service(s)) {
           let principal: TransparencyState.TransparencyState<Principal> = decodeReference(bytes, decodePrincipal)!;
-          #service(principal);
+          #Service(principal);
         };
-        case (#variant(v)) {
+        case (#Variant(v)) {
           let innerTypes: [Type.VariantOptionType] = switch (t) {
-            case (#variant(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
+            case (#Variant(vv)) Array.sort(vv, InternalTypes.tagObjCompare); // Order fields by tag
             case (_) return null; // type definition doesnt match
           };
           let optionIndex = NatX.decodeNat(bytes, #unsignedLEB128)!; // Get index of option chosen
           let innerType: Type.VariantOptionType = innerTypes[optionIndex];
           let innerValue: Value.Value = decodeValue(bytes, innerType._type, referencedTypes)!; // Get value of option chosen
-          #variant({tag=innerType.tag; value=innerValue});
+         #Variant({tag=innerType.tag; value=innerValue});
         };
         case (#recursiveType(rT)) {
           decodeValue(bytes, rT._type, referencedTypes)!;
@@ -266,24 +266,24 @@ module {
   private func buildType(indexOrCode: Int, compoundTypes: [ShallowCompoundType<ReferenceType>], parentTypes: TrieMap.TrieMap<Nat, (Text, Bool)>) : ?Type.Type {
     do ? {
       switch (indexOrCode) {
-        case (-1) #_null;
-        case (-2) #bool;
-        case (-3) #nat;
-        case (-4) #int;
-        case (-5) #nat8;
-        case (-6) #nat16;
-        case (-7) #nat32;
-        case (-8) #nat64;
-        case (-9) #int8;
-        case (-10) #int16;
-        case (-11) #int32;
-        case (-12) #int64;
-        case (-13) #float32;
-        case (-14) #float64;
-        case (-15) #text;
-        case (-16) #reserved;
-        case (-17) #empty;
-        case (-24) #principal;
+        case (-1) #Null;
+        case (-2) #Bool;
+        case (-3) #Nat;
+        case (-4) #Int;
+        case (-5) #Nat8;
+        case (-6) #Nat16;
+        case (-7) #Nat32;
+        case (-8) #Nat64;
+        case (-9) #Int8;
+        case (-10) #Int16;
+        case (-11) #Int32;
+        case (-12) #Int64;
+        case (-13) #Float32;
+        case (-14) #Float64;
+        case (-15) #Text;
+        case (-16) #Reserved;
+        case (-17) #Empty;
+        case (-24) #Principal;
         case (i) {
           if (i < 0) {
             return null; // Invalid, all negatives are listed
@@ -306,31 +306,31 @@ module {
           parentTypes.put(index, (recursiveId, false));
           let refType = compoundTypes[index];
           let t: Type.CompoundType = switch (refType) {
-            case (#opt(o)) {
+            case (#Option(o)) {
               let inner: Type.Type = buildType(o, compoundTypes, parentTypes)!;
-              #opt(inner);
+              #Option(inner);
             };
-            case (#vector(ve)) {
+            case (#Vector(ve)) {
               let inner: Type.Type = buildType(ve, compoundTypes, parentTypes)!;
-              #vector(inner);
+              #Vector(inner);
             };
-            case (#record(r)) {
+            case (#Record(r)) {
               let fields = Buffer.Buffer<Type.RecordFieldType>(r.size());
               for (fieldRefType in Iter.fromArray(r)) {
                 let fieldType: Type.Type = buildType(fieldRefType._type, compoundTypes, parentTypes)!;
                 fields.add({tag=fieldRefType.tag; _type=fieldType});
               };
-              #record(fields.toArray());
+              #Record(fields.toArray());
             };
-            case (#variant(va)) {
+            case (#Variant(va)) {
               let options = Buffer.Buffer<Type.VariantOptionType>(va.size());
               for (optionRefType in Iter.fromArray(va)) {
                 let optionType: Type.Type = buildType(optionRefType._type, compoundTypes, parentTypes)!;
                 options.add({tag=optionRefType.tag; _type=optionType});
               };
-              #variant(options.toArray());
+             #Variant(options.toArray());
             };
-            case (#_func(f)) {
+            case (#Func(f)) {
               let modes: [FuncMode.FuncMode] = f.modes;
               let map = func (a: [ReferenceType]) : ?[Type.Type] {
                 do ? {
@@ -344,24 +344,24 @@ module {
               };
               let argTypes: [Type.Type] = map(f.argTypes)!;
               let returnTypes: [Type.Type] = map(f.returnTypes)!;
-              #_func({
+              #Func({
                 argTypes=argTypes;
                 modes=modes;
                 returnTypes=returnTypes;
               });
             };
-            case (#service(s)) {
+            case (#Service(s)) {
               let methods = Buffer.Buffer<(Text, Type.FuncType)>(s.methods.size());
               for (method in Iter.fromArray(s.methods)) {
                 let t: Type.Type = buildType(method.1, compoundTypes, parentTypes)!;
                 switch (t) {
-                  case (#_func(f)) {
+                  case (#Func(f)) {
                     methods.add((method.0, f));
                   };
                   case (_) return null;
                 }
               };
-              #service({
+              #Service({
                 methods=methods.toArray();
               });
             };
@@ -406,29 +406,29 @@ module {
         // opt
         case (-18) {
           let innerRef = decodeReferenceType(bytes)!;
-          #opt(innerRef);
+          #Option(innerRef);
         };
         // vector
         case (-19) {
           let innerRef = decodeReferenceType(bytes)!;
-          #vector(innerRef);
+          #Vector(innerRef);
         };
         // record
         case (-20) {
           let fields: [InternalTypes.RecordFieldReferenceType<ReferenceType>] = decodeTypeMulti(bytes, decodeTaggedType)!;
-          #record(fields);
+          #Record(fields);
         };
         // variant
         case (-21) {
           let options: [InternalTypes.VariantOptionReferenceType<ReferenceType>] = decodeTypeMulti(bytes, decodeTaggedType)!;
-          #variant(options);
+         #Variant(options);
         };
         // func
         case (-22) {
           let argTypes: [ReferenceType] = decodeTypeMulti(bytes, decodeReferenceType)!;
           let returnTypes: [ReferenceType] = decodeTypeMulti(bytes, decodeReferenceType)!;
           let modes: [FuncMode.FuncMode] = decodeTypeMulti(bytes, decodeFuncMode)!;
-          #_func({
+          #Func({
             modes=modes;
             argTypes=argTypes;
             returnTypes=returnTypes;
@@ -437,7 +437,7 @@ module {
         // service
         case (-23) {
           let methods: [(Text, ReferenceType)] = decodeTypeMulti(bytes, decodeMethod)!;
-          #service({
+          #Service({
             methods=methods;
           });
         };

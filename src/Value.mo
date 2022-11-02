@@ -23,53 +23,53 @@ module {
   public type VariantOptionValue = RecordFieldValue;
 
   public type Value = {
-    #int : Int;
-    #int8 : Int8;
-    #int16 : Int16;
-    #int32 : Int32;
-    #int64 : Int64;
-    #nat : Nat;
-    #nat8 : Nat8;
-    #nat16 : Nat16;
-    #nat32 : Nat32;
-    #nat64 : Nat64;
-    #_null;
-    #bool : Bool;
-    #float32 : Float;
-    #float64 : Float;
-    #text : Text;
-    #reserved;
-    #empty;
-    #opt : ?Value;
-    #vector : [Value];
-    #record : [RecordFieldValue];
-    #variant : VariantOptionValue;
-    #_func : TransparencyState<Func>;
-    #service : TransparencyState<Principal>;
-    #principal : TransparencyState<Principal>;
+    #Int : Int;
+    #Int8 : Int8;
+    #Int16 : Int16;
+    #Int32 : Int32;
+    #Int64 : Int64;
+    #Nat : Nat;
+    #Nat8 : Nat8;
+    #Nat16 : Nat16;
+    #Nat32 : Nat32;
+    #Nat64 : Nat64;
+    #Null;
+    #Bool : Bool;
+    #Float32 : Float;
+    #Float64 : Float;
+    #Text : Text;
+    #Reserved;
+    #Empty;
+    #Option : ?Value;
+    #Vector : [Value];
+    #Record : [RecordFieldValue];
+    #Variant : VariantOptionValue;
+    #Func : TransparencyState<Func>;
+    #Service : TransparencyState<Principal>;
+    #Principal : TransparencyState<Principal>;
   };
 
   public func equal(v1: Value, v2: Value): Bool {
     switch (v1) {
-      case (#float32(f1)) {
+      case (#Float32(f1)) {
         let f2 = switch (v2) {
-          case(#float32(f2)) f2;
-          case(#float64(f2)) f2;
+          case(#Float32(f2)) f2;
+          case(#Float64(f2)) f2;
           case (_) return false;
         };
         FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001);
       };
-      case (#float64(f1)) {
+      case (#Float64(f1)) {
         let f2 = switch (v2) {
-          case(#float32(f2)) f2;
-          case(#float64(f2)) f2;
+          case(#Float32(f2)) f2;
+          case(#Float64(f2)) f2;
           case (_) return false;
         };
         FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001);
       };
-      case (#opt(o1)) {
+      case (#Option(o1)) {
         let o2 = switch (v2) {
-          case(#opt(o2)) o2;
+          case(#Option(o2)) o2;
           case (_) return false;
         };
         switch (o1) {
@@ -82,9 +82,9 @@ module {
           }
         };
       };
-      case (#vector(ve1)) {
+      case (#Vector(ve1)) {
         let ve2 = switch (v2) {
-          case(#vector(ve)) ve;
+          case(#Vector(ve)) ve;
           case (_) return false;
         };
         InternalTypes.arraysAreEqual(
@@ -94,9 +94,9 @@ module {
           equal
         );
       };
-      case (#record(r1)) {
+      case (#Record(r1)) {
         let r2 = switch (v2) {
-          case(#record(r2)) r2;
+          case(#Record(r2)) r2;
           case (_) return false;
         };
 
@@ -114,9 +114,9 @@ module {
           }
         );
       };
-      case (#variant(va1)) {
+      case (#Variant(va1)) {
         let va2 = switch (v2) {
-          case(#variant(va2)) va2;
+          case(#Variant(va2)) va2;
           case (_) return false;
         };
         if (not Tag.equal(va1.tag, va2.tag)) {
@@ -127,9 +127,9 @@ module {
         };
         true;
       };
-      case (#_func(f1)) {
+      case (#Func(f1)) {
         let f2 = switch (v2) {
-          case(#_func(f2)) f2;
+          case(#Func(f2)) f2;
           case (_) return false;
         };
         switch (f1){
@@ -148,9 +148,9 @@ module {
           }
         }
       };
-      case (#service(s1)) {
+      case (#Service(s1)) {
         let s2 = switch (v2) {
-          case(#service(s2)) s2;
+          case(#Service(s2)) s2;
           case (_) return false;
         };
         s1 == s2
