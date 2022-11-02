@@ -53,8 +53,8 @@ func call_raw(p : Principal, m : Text, a : Blob) : async Blob {
     // Return result
     let returnArgs: [Arg.Arg] = [
         {
-            _type=#bool;
-            value=#bool(true)
+            _type=#Bool;
+            value=#Bool(true)
         }
     ];
     Encoder.encode(returnArgs);

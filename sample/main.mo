@@ -19,8 +19,8 @@ actor Sample {
       // Return result
       let returnArgs: [Arg.Arg] = [
         {
-          _type=#bool;
-          value=#bool(true)
+          _type=#Bool;
+          value=#Bool(true)
         }
       ];
       Encoder.encode(returnArgs);
