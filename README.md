@@ -118,6 +118,10 @@ Hashes a type to a Nat32
 
 Checks for equality between two values
 
+`hash(v : Value) : Hash.Hash`
+
+Hashes a value to a Nat32
+
 # Library Devlopment:
 
 ## First time setup
