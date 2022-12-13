@@ -9,7 +9,7 @@ let
       {
          name = "xtendedNumbers"
          , version = "v1.0.0"
-         , repo = "https://github.com/gekctek/motoko_numbers"
+         , repo = "https://github.com/edjcase/motoko_numbers"
          , dependencies = [] : List Text
       }
     ] : List Package

@@ -13,3 +13,4 @@ src/declarations/
 .vessel
 
 build/
+.mops/
