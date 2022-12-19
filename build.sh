@@ -7,6 +7,6 @@ fi
 for filename in "Arg" "Decoder" "Encoder" "FuncMode" "Tag" "TransparencyState" "Type" "TypeCode" "Value"
 do
     echo "Building $filename..."
-    $(vessel bin)/moc $(vessel sources) -wasi-system-api "./src/$filename.mo" -o $dir/$filename.wasm
+    $(vessel bin)/moc $(mops sources) -wasi-system-api "./src/$filename.mo" -o $dir/$filename.wasm
     echo "Building $filename complete"
 done

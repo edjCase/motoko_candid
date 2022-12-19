@@ -1,9 +1,9 @@
 [dependencies]
 base = "https://github.com/dfinity/motoko-base#moc-0.7.4"
-xtendedNumbers = "https://github.com/edjcase/motoko_numbers#v1.0.0"
+xtendedNumbers = "https://github.com/edjcase/motoko_numbers#v1.0.1"
 
 [package]
 name = "candid"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Candid library for encoding and decoding candid bytes"
 repository = "https://github.com/edjcase/motoko_candid"

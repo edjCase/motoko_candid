@@ -1,17 +1,11 @@
 {
   "version": 1,
-  "dfx": "0.11.2",
+  "dfx": "0.12.1",
   "canisters": {},
   "defaults": {
     "build": {
-      "packtool": "vessel sources",
+      "packtool": "mops sources",
       "args": ""
-    }
-  },
-  "networks": {
-    "local": {
-      "bind": "127.0.0.1:8000",
-      "type": "ephemeral"
     }
   }
 }

@@ -340,7 +340,8 @@ module {
             },
           ),
         );
-        #record(fields);
+        let sortedFields = Array.sort<RecordFieldReferenceType<ReferenceOrRecursiveType>>(fields, func(f1, f2) { Tag.compare(f1.tag, f2.tag) });
+        #record(sortedFields);
       };
       case (#variant(v)) {
         let options : [VariantOptionReferenceType<ReferenceOrRecursiveType>] = Iter.toArray(
@@ -352,7 +353,8 @@ module {
             },
           ),
         );
-        #variant(options);
+        let sortedOptions = Array.sort<RecordFieldReferenceType<ReferenceOrRecursiveType>>(options, func(o1, o2) { Tag.compare(o1.tag, o2.tag) });
+        #variant(sortedOptions);
       };
       case (#_func(fn)) {
         let funcTypesToReference = func(types : [Type.Type]) : [ReferenceOrRecursiveType] {

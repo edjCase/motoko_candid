@@ -16,7 +16,7 @@ import Arg "../src/Arg";
 
 module {
   public func run() {
-      // Nat
+    // Nat
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x7D, 0x00], #nat, #nat(0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x7D, 0x01], #nat, #nat(1));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x7D, 0x7F], #nat, #nat(127));
@@ -37,7 +37,7 @@ module {
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x79, 0x00, 0x00, 0x00, 0x00], #nat32, #nat32(0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x79, 0x10, 0x00, 0x00, 0x00], #nat32, #nat32(16));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x79, 0xEA, 0x49, 0x08, 0x00], #nat32, #nat32(543210));
-    
+
     // Nat64
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x78, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], #nat64, #nat64(0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x78, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], #nat64, #nat64(16));
@@ -59,7 +59,7 @@ module {
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x77, 0x10], #int8, #int8(16));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x77, 0x63], #int8, #int8(99));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x77, 0xF1], #int8, #int8(-15));
-    
+
     // Int16
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x76, 0x00, 0x00], #int16, #int16(0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x76, 0x10, 0x00], #int16, #int16(16));
@@ -71,7 +71,7 @@ module {
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x75, 0x10, 0x00, 0x00, 0x00], #int32, #int32(16));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x75, 0xF1, 0xFF, 0xFF, 0xFF], #int32, #int32(-15));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x75, 0xFF, 0xFF, 0x00, 0x00], #int32, #int32(65535));
-    
+
     // Int64
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], #int64, #int64(0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x74, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], #int64, #int64(16));
@@ -87,7 +87,7 @@ module {
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F], #float64, #float64(1.0));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x72, 0x38, 0x32, 0x8F, 0xFC, 0xC1, 0xC0, 0xF3, 0x3F], #float64, #float64(1.23456));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x72, 0x8A, 0xB0, 0xE1, 0xE9, 0xD6, 0x1C, 0xF8, 0xC0], #float64, #float64(-98765.4321));
-    
+
     // Bool
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x7E, 0x01], #bool, #bool(true));
     test([0x44, 0x49, 0x44, 0x4C, 0x00, 0x01, 0x7E, 0x00], #bool, #bool(false));
@@ -117,113 +117,92 @@ module {
     test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6D, 0x7C, 0x01, 0x00, 0x02, 0x01, 0x02], #vector(#int), #vector([#int(1), #int(2)]));
 
     // Record
-    test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x01, 0x01, 0x7C, 0x01, 0x00, 0x2A], #record([{tag=#hash(1); _type=#int}]), #record([{tag=#hash(1); value=#int(42)}]));
-    test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x02, 0x86, 0x8E, 0xB7, 0x02, 0x7C, 0xD3, 0xE3, 0xAA, 0x02, 0x7E, 0x01, 0x00, 0x01, 0x2A], #record([{tag=#name("foo"); _type=#int}, {tag=#name("bar"); _type=#bool}]), #record([{tag=#name("foo"); value=#int(42)}, {tag=#name("bar"); value=#bool(true)}]));
-    
+    test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x01, 0x01, 0x7C, 0x01, 0x00, 0x2A], #record([{ tag = #hash(1); _type = #int }]), #record([{ tag = #hash(1); value = #int(42) }]));
+    test([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x02, 0xD3, 0xE3, 0xAA, 0x02, 0x7E, 0x86, 0x8E, 0xB7, 0x02, 0x7C, 0x01, 0x00, 0x01, 0x2A], #record([{ tag = #name("foo"); _type = #int }, { tag = #name("bar"); _type = #bool }]), #record([{ tag = #name("foo"); value = #int(42) }, { tag = #name("bar"); value = #bool(true) }]));
+
     test(
       [0x44, 0x49, 0x44, 0x4C, 0x04, 0x6E, 0x7C, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x00, 0x6E, 0x01, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x02, 0x01, 0x03, 0x01, 0x00],
-      #record([
-        {
-          tag=#name("selfRef");
-          _type=#opt(#record([
-            {
-              tag=#name("selfRef");
-              _type=#opt(#int)
-            }
-          ]))
-        }
-      ]),
-      #record([
-        {
-          tag=#name("selfRef");
-          value=#opt(?#record([
-            {
-              tag=#name("selfRef");
-              value=#opt(null)
-            }
-          ]))
-        }
-      ])
+      #record([{
+        tag = #name("selfRef");
+        _type = #opt(#record([{ tag = #name("selfRef"); _type = #opt(#int) }]));
+      }]),
+      #record([{
+        tag = #name("selfRef");
+        value = #opt(?#record([{ tag = #name("selfRef"); value = #opt(null) }]));
+      }]),
     );
 
     // Variant
-    test([0x44, 0x49, 0x44, 0x4C, 0x03, 0x6C, 0x05, 0xC4, 0xA7, 0xC9, 0xA1, 0x01, 0x79, 0xDC, 0x8B, 0xD3, 0xF4, 0x01, 0x79, 0x8D, 0x98, 0xF3, 0xE7, 0x04, 0x7C, 0xE2, 0xD8, 0xDE, 0xFB, 0x0B, 0x79, 0x89, 0xFB, 0x97, 0xEB, 0x0E, 0x71, 0x6B, 0x01, 0xCF, 0xA0, 0xDE, 0xF2, 0x06, 0x7F, 0x6B, 0x02, 0x9C, 0xC2, 0x01, 0x00, 0xE5, 0x8E, 0xB4, 0x02, 0x01, 0x01, 0x02, 0x01, 0x00],
+    test(
+      [0x44, 0x49, 0x44, 0x4C, 0x03, 0x6C, 0x05, 0xC4, 0xA7, 0xC9, 0xA1, 0x01, 0x79, 0xDC, 0x8B, 0xD3, 0xF4, 0x01, 0x79, 0x8D, 0x98, 0xF3, 0xE7, 0x04, 0x7C, 0xE2, 0xD8, 0xDE, 0xFB, 0x0B, 0x79, 0x89, 0xFB, 0x97, 0xEB, 0x0E, 0x71, 0x6B, 0x01, 0xCF, 0xA0, 0xDE, 0xF2, 0x06, 0x7F, 0x6B, 0x02, 0x9C, 0xC2, 0x01, 0x00, 0xE5, 0x8E, 0xB4, 0x02, 0x01, 0x01, 0x02, 0x01, 0x00],
       #variant([
         {
-          tag=#name("ok");
-          _type=#record([
+          tag = #name("ok");
+          _type = #record([
             {
-              tag=#name("total");
-              _type=#nat32
+              tag = #name("total");
+              _type = #nat32;
             },
             {
-              tag=#name("desktop");
-              _type=#nat32
+              tag = #name("desktop");
+              _type = #nat32;
             },
             {
-              tag=#name("time");
-              _type=#int
+              tag = #name("time");
+              _type = #int;
             },
             {
-              tag=#name("mobile");
-              _type=#nat32
+              tag = #name("mobile");
+              _type = #nat32;
             },
             {
-              tag=#name("route");
-              _type=#text
-            }
-          ])
+              tag = #name("route");
+              _type = #text;
+            },
+          ]);
         },
         {
-          tag=#name("err");
-          _type=#variant([
-            {
-              tag=#name("NotFound");
-              _type=#_null
-            }
-          ])
-        }
+          tag = #name("err");
+          _type = #variant([{
+            tag = #name("NotFound");
+            _type = #_null;
+          }]);
+        },
       ]),
       #variant({
-        tag=#name("err");
-        value=#variant({
-          tag=#name("NotFound");
-          value=#_null
-        })
-      })
+        tag = #name("err");
+        value = #variant({
+          tag = #name("NotFound");
+          value = #_null;
+        });
+      }),
     );
 
     // Func
     test(
       [0x44, 0x49, 0x44, 0x4C, 0x03, 0x6E, 0x7D, 0x6D, 0x77, 0x6A, 0x02, 0x7C, 0x00, 0x01, 0x01, 0x02, 0x01, 0x02, 0x01, 0x02, 0x01, 0x01, 0x00, 0x12, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x4E, 0x4E, 0x53, 0x46, 0x75, 0x6E, 0x63, 0x74, 0x69, 0x6F, 0x6E],
       #_func({
-        modes=[#_query,#oneWay];
-        argTypes=[#int, #opt(#nat)];
-        returnTypes=[#vector(#int8)];
+        modes = [#_query, #oneWay];
+        argTypes = [#int, #opt(#nat)];
+        returnTypes = [#vector(#int8)];
       }),
-      #_func(#transparent({
-        method="ExecuteNNSFunction";
-        service=#transparent(Principal.fromText("aaaaa-aa"))
-      }))
+      #_func(#transparent({ method = "ExecuteNNSFunction"; service = #transparent(Principal.fromText("aaaaa-aa")) })),
     );
-
 
     // Service
     test(
       [0x44, 0x49, 0x44, 0x4C, 0x04, 0x6E, 0x7D, 0x6D, 0x77, 0x6A, 0x02, 0x7C, 0x00, 0x01, 0x01, 0x02, 0x01, 0x02, 0x69, 0x01, 0x12, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x4E, 0x4E, 0x53, 0x46, 0x75, 0x6E, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x02, 0x01, 0x03, 0x01, 0x00],
       #service({
-        methods=[
-          (
-            "ExecuteNNSFunction",
-            {
-              modes=[#_query,#oneWay];
-              argTypes=[#int, #opt(#nat)];
-              returnTypes=[#vector(#int8)];
-            }
-          )
-        ]
+        methods = [(
+          "ExecuteNNSFunction",
+          {
+            modes = [#_query, #oneWay];
+            argTypes = [#int, #opt(#nat)];
+            returnTypes = [#vector(#int8)];
+          },
+        )];
       }),
-      #service(#transparent(Principal.fromText("aaaaa-aa")))
+      #service(#transparent(Principal.fromText("aaaaa-aa"))),
     );
 
     // Recursion
@@ -231,25 +210,16 @@ module {
     test(
       [0x44, 0x49, 0x44, 0x4C, 0x02, 0x6E, 0x01, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x00, 0x01, 0x01, 0x01, 0x00],
       #recursiveType({
-        id="rec_1";
-        _type=#record([
-          {
-            tag=#name("selfRef");
-            _type=#opt(#recursiveReference("rec_1"))
-          }
-        ])
+        id = "rec_1";
+        _type = #record([{
+          tag = #name("selfRef");
+          _type = #opt(#recursiveReference("rec_1"));
+        }]);
       }),
-      #record([
-        {
-          tag=#name("selfRef");
-          value=#opt(?#record([
-            {
-              tag=#name("selfRef");
-              value=#opt(null)
-            }
-          ]))
-        }
-      ])
+      #record([{
+        tag = #name("selfRef");
+        value = #opt(?#record([{ tag = #name("selfRef"); value = #opt(null) }]));
+      }]),
     );
 
     // Duplicate Types are merged
@@ -257,75 +227,129 @@ module {
       [0x44, 0x49, 0x44, 0x4C, 0x03, 0x6E, 0x7C, 0x6E, 0x7C, 0x6B, 0x02, 0x31, 0x00, 0x92, 0xFF, 0xC9, 0x93, 0x04, 0x01, 0x01, 0x02, 0x00, 0x01, 0x01],
       #variant([
         {
-          tag=#name("1");
-          _type=#opt(#int)
+          tag = #name("1");
+          _type = #opt(#int);
         },
         {
-          tag=#name("dup1");
-          _type=#opt(#int)
-        }
+          tag = #name("dup1");
+          _type = #opt(#int);
+        },
       ]),
       #variant({
-        tag=#name("1");
-        value=#opt(?#int(1))
-      })
-    )
+        tag = #name("1");
+        value = #opt(?#int(1));
+      }),
+    );
+
+    // Nested record
+    test(
+      [0x44, 0x49, 0x44, 0x4C, 0x03, 0x6E, 0x7F, 0x6C, 0x03, 0xBF, 0xE9, 0xA7, 0x02, 0x7D, 0x9C, 0x9E, 0xBB, 0xFE, 0x06, 0x00, 0x82, 0xBB, 0x82, 0xA5, 0x0F, 0x7E, 0x6C, 0x02, 0xCB, 0xE4, 0xFD, 0xC7, 0x04, 0x71, 0xC2, 0xB9, 0xDB, 0xDA, 0x0A, 0x01, 0x01, 0x02, 0x06, 0x63, 0x61, 0x6E, 0x64, 0x69, 0x64, 0x20, 0x01, 0x00],
+      #record([
+        {
+          _type = #record([
+            { _type = #nat; tag = #name("age") },
+            { _type = #opt(#_null); tag = #name("email") },
+            { _type = #bool; tag = #name("registered") },
+          ]);
+          tag = #name("details");
+        },
+        {
+          _type = #text;
+          tag = #name("name");
+        },
+      ]),
+      #record([
+        {
+          tag = #name("details");
+          value = #record([
+            { tag = #name("age"); value = #nat(32) },
+            { tag = #name("email"); value = #opt(?(#_null)) },
+            { tag = #name("registered"); value = #bool(false) },
+          ]);
+        },
+        {
+          tag = #name("name");
+          value = #text("candid");
+        },
+      ]),
+    );
+
+    // expected: 4449444c026c02cbe4fdc70471c2b9dbda0a016c03bfe9a7027c9c9ebbfe067f82bb82a50f7e010004546f6d692000
+    // received: 4449444c036e7f6c03bfe9a7027d9c9ebbfe060082bb82a50f7e6c02c2b9dbda0a01cbe4fdc70471010204546f6d69200100
 
   };
 
-  private func test(bytes: [Nat8], t : Type.Type, arg: Value.Value) {
-    Debug.print("Testing...\nType:  " # debug_show(t) # "\nValue: " # debug_show(arg) # "\nExpected Bytes: " # toHexString(bytes));
-    let actualBytes: [Nat8] = Blob.toArray(Encoder.encode([{value=arg; _type=t}]));
+  private func test(bytes : [Nat8], t : Type.Type, arg : Value.Value) {
+    Debug.print("Testing...\nType:  " # debug_show (t) # "\nValue: " # debug_show (arg) # "\nExpected Bytes: " # toHexString(bytes));
+    let actualBytes : [Nat8] = Blob.toArray(Encoder.encode([{ value = arg; _type = t }]));
     if (not areEqual(bytes, actualBytes)) {
-        Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show(arg));
+      Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show (arg));
     };
     let args : ?[Arg.Arg] = Decoder.decode(Blob.fromArray(bytes));
-    switch(args){
+    switch (args) {
       case (null) {
-        Debug.trap("Failed decoding.\nExpected Type: " # debug_show(t) # "\nExpected Value: " # debug_show(arg) # "\nBytes: " # toHexString(bytes))
+        Debug.trap("Failed decoding.\nExpected Type: " # debug_show (t) # "\nExpected Value: " # debug_show (arg) # "\nBytes: " # toHexString(bytes));
       };
       case (?args) {
         if (args.size() != 1) {
           Debug.trap("Too many args: " # Nat.toText(args.size()));
         };
-        let actualArg: Arg.Arg = args[0];
+        let actualArg : Arg.Arg = args[0];
         if (not Type.equal(t, actualArg._type)) {
-          Debug.trap("Failed Type Check.\nExpected Type: " # debug_show(t) # "\nActual Type: " # debug_show(actualArg._type));
+          Debug.trap("Failed Type Check.\nExpected Type: " # debug_show (t) # "\nActual Type: " # debug_show (actualArg._type));
         };
         if (not Value.equal(arg, actualArg.value)) {
-          Debug.trap("Failed Value Check.\nExpected Value: " # debug_show(arg) # "\nActual Value: " # debug_show(actualArg.value));
+          Debug.trap("Failed Value Check.\nExpected Value: " # debug_show (arg) # "\nActual Value: " # debug_show (actualArg.value));
         };
         Debug.print("Passed\n");
-      }
+      };
     };
   };
 
-  private func areEqual(b1: [Nat8], b2: [Nat8]) : Bool {
+  private func areEqual(b1 : [Nat8], b2 : [Nat8]) : Bool {
     if (b1.size() != b2.size()) {
       return false;
     };
     for (i in Iter.range(0, b1.size() - 1)) {
       if (b1[i] != b2[i]) {
-          return false;
+        return false;
       };
     };
     true;
   };
 
   private func toHexString(array : [Nat8]) : Text {
-    Array.foldLeft<Nat8, Text>(array, "", func (accum, w8) {
-      var pre = "";
-      if(accum != ""){
+    Array.foldLeft<Nat8, Text>(
+      array,
+      "",
+      func(accum, w8) {
+        var pre = "";
+        if (accum != "") {
           pre #= ", ";
-      };
-      accum # pre # encodeW8(w8);
-    });
+        };
+        accum # pre # encodeW8(w8);
+      },
+    );
   };
-  private let base : Nat8 = 0x10; 
+  private let base : Nat8 = 0x10;
 
   private let symbols = [
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F',
   ];
   /**
   * Encode an unsigned 8-bit integer in hexadecimal format.
@@ -335,4 +359,4 @@ module {
     let c2 = symbols[Nat8.toNat(w8 % base)];
     "0x" # Char.toText(c1) # Char.toText(c2);
   };
-}
+};
