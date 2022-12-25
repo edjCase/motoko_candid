@@ -24,9 +24,9 @@ Currently there is no official package but there is a manual process:
 { name = "candid"
 , version = {{candidVersion}}"
 , repo = "https://github.com/gekctek/motoko_candid"
-, dependencies = ["xtendedNumbers"] : List Text
+, dependencies = ["xtended-numbers"] : List Text
 },
-{ name = "xtendedNumbers"
+{ name = "xtended-numbers"
 , version = "{{xtendedNumbersVersion}}"
 , repo = "https://github.com/gekctek/motoko_numbers"
 , dependencies = [] : List Text
