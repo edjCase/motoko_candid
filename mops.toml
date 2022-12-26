@@ -1,6 +1,6 @@
 [dependencies]
-base = "https://github.com/dfinity/motoko-base#moc-0.7.4"
-xtendedNumbers = "https://github.com/edjcase/motoko_numbers#v1.0.1"
+base = "0.7.4"
+xtended-numbers = "0.1.1"
 
 [package]
 name = "candid"

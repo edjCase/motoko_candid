@@ -1,5 +1,5 @@
 import Array "mo:base/Array";
-import FloatX "mo:xtendedNumbers/FloatX";
+import FloatX "mo:xtended-numbers/FloatX";
 import InternalTypes "InternalTypes";
 import Iter "mo:base/Iter";
 import Order "mo:base/Order";

@@ -3,7 +3,7 @@ import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
 import Nat32 "mo:base/Nat32";
-import NatX "mo:xtendedNumbers/NatX";
+import NatX "mo:xtended-numbers/NatX";
 
 module {
   public type Tag = {
