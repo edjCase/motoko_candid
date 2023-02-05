@@ -4,7 +4,6 @@ import InternalTypes "InternalTypes";
 import Iter "mo:base/Iter";
 import Order "mo:base/Order";
 import Tag "./Tag";
-import TransparencyState "./TransparencyState";
 import Type "./Type";
 import Buffer "mo:base/Buffer";
 import Prelude "mo:base/Prelude";
@@ -26,7 +25,6 @@ import Text "mo:base/Text";
 
 module {
   type Tag = Tag.Tag;
-  type TransparencyState<T> = TransparencyState.TransparencyState<T>;
 
   public type RecordFieldValue = {
     tag : Tag;
@@ -34,7 +32,7 @@ module {
   };
 
   public type Func = {
-    service : TransparencyState<Principal>;
+    service : Principal;
     method : Text;
   };
 
@@ -51,20 +49,28 @@ module {
     #nat16 : Nat16;
     #nat32 : Nat32;
     #nat64 : Nat64;
-    #_null;
     #bool : Bool;
     #float32 : Float;
     #float64 : Float;
     #text : Text;
+    #null_;
     #reserved;
     #empty;
-    #opt : ?Value;
+    #opt : Value;
     #vector : [Value];
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;
-    #_func : TransparencyState<Func>;
-    #service : TransparencyState<Principal>;
-    #principal : TransparencyState<Principal>;
+    #_func : Func;
+    #service : Principal;
+    #principal : Principal;
+  };
+  public type TagHashMapper = (tagHash : Nat32) -> ?Text;
+  public type ToTextOverride = (value : Value) -> ?Text;
+
+  public type ToTextOptions = {
+    tagHashMapper : ?TagHashMapper;
+    toTextOverride : ?ToTextOverride;
+    indented : Bool;
   };
 
   public func equal(v1 : Value, v2 : Value) : Bool {
@@ -90,15 +96,7 @@ module {
           case (#opt(o2)) o2;
           case (_) return false;
         };
-        switch (o1) {
-          case (null) return o2 == null;
-          case (?o1) {
-            switch (o2) {
-              case (null) return false;
-              case (?o2) equal(o1, o2);
-            };
-          };
-        };
+        equal(o1, o2);
       };
       case (#vector(ve1)) {
         let ve2 = switch (v2) {
@@ -152,20 +150,10 @@ module {
           case (#_func(f2)) f2;
           case (_) return false;
         };
-        switch (f1) {
-          case (#opaque) f2 == #opaque;
-          case (#transparent(t1)) {
-            switch (f2) {
-              case (#opaque) false;
-              case (#transparent(t2)) {
-                if (t1.method != t2.method) {
-                  false;
-                } else {
-                  t1.service == t2.service;
-                };
-              };
-            };
-          };
+        if (f1.method != f2.method) {
+          false;
+        } else {
+          f1.service == f2.service;
         };
       };
       case (#service(s1)) {
@@ -179,7 +167,27 @@ module {
     };
   };
 
-  public func toText(value : Value, _type : Type.Type) : Text {
+  public func toText(value : Value) : Text {
+    toTextAdvanced(value, { tagHashMapper = null; toTextOverride = null; indented = false });
+  };
+
+  public func toTextIndented(value : Value) : Text {
+    toTextAdvanced(value, { tagHashMapper = null; toTextOverride = null; indented = true });
+  };
+
+  public func toTextAdvanced(value : Value, options : ToTextOptions) : Text {
+    toTextAdvancedInternal(value, options, 0);
+  };
+
+  private func toTextAdvancedInternal(value : Value, options : ToTextOptions, depth : Nat) : Text {
+    // Check overrides to get value if needed
+    switch (options.toTextOverride) {
+      case (?o) switch (o(value)) {
+        case (?t) return t;
+        case (_)();
+      };
+      case (_)();
+    };
     switch (value) {
       // Nat
       case (#nat(n)) Nat.toText(n);
@@ -198,154 +206,158 @@ module {
       case (#float64(n)) Float.toText(n);
       // Bool
       case (#bool(b)) Bool.toText(b);
-      // Principal
-      case (#principal(service)) toTextPrincipal(service);
-      // Text
-      case (#text(n)) n;
       // Null
-      case (#_null) "null";
-      // Opt
-      case (#opt(optVal)) {
-        let innerType : Type.Type = switch (_type) {
-          case (#opt(innerType)) innerType;
-          case (_) Debug.trap(getTypeMismatchError(_type, value));
-        };
-        toTextOpt(optVal, innerType);
-      };
-      // Vector
-      case (#vector(arr)) {
-        let innerType : Type.Type = switch (_type) {
-          case (#vector(innerType)) innerType;
-          case (_) Debug.trap(getTypeMismatchError(_type, value));
-        };
-        toTextVector(arr, innerType);
-      };
-      // Record
-      case (#record(fieldValues)) {
-        let fields : [RecordField] = switch (_type) {
-          case (#record(fieldTypes)) {
-            Iter.toArray(
-              Iter.map<Type.RecordFieldType, RecordField>(
-                Iter.fromArray(fieldTypes),
-                func(t) {
-                  let fieldValue = switch (Array.find<RecordFieldValue>(fieldValues, func(v) = v.tag == t.tag)) {
-                    case (null) Debug.trap(getTypeMismatchError(_type, value));
-                    case (?v) v;
-                  };
-                  {
-                    tag = t.tag;
-                    value = fieldValue.value;
-                    _type = t._type;
-                  };
-                },
-              ),
-            );
-          };
-          case (_) Debug.trap(getTypeMismatchError(_type, value));
-        };
-        toTextRecord(fields);
-      };
-      // Variant
-      case (#variant(v)) {
-        let optionType : Type.Type = switch (_type) {
-          case (#variant(optionTypes)) {
-            // Get the matching option type by tag
-            switch (Array.find<Type.VariantOptionType>(optionTypes, func(t) = t.tag == v.tag)) {
-              case (null) Debug.trap(getTypeMismatchError(_type, value));
-              case (?v) v._type;
-            };
-          };
-          case (_) Debug.trap(getTypeMismatchError(_type, value));
-        };
-        toTextVariant(v.tag, v.value, optionType);
-      };
-      // Func
-      case (#_func(f)) {
-        let funcText = toTextTrasparencyState<Func>(
-          f,
-          func(f) {
-            let serviceText : Text = toTextPrincipal(f.service);
-            "{ method = " # f.method # "; service = " # serviceText # "}";
-          },
-        );
-        "func " # funcText;
-      };
+      case (#null_) "null";
       // Empty
       case (#empty) "empty";
       // Reserved
       case (#reserved) "reserved";
+
+      // Principal
+      case (#principal(p)) toTextPrincipal(p);
+      // Text
+      case (#text(n)) "\"" # n # "\"";
+      // Opt
+      case (#opt(optVal)) toTextOpt(optVal, options, depth);
+      // Vector
+      case (#vector(values)) toTextVector(values, options, depth);
+      // Record
+      case (#record(fieldValues)) toTextRecord(fieldValues, options, depth);
+      // Variant
+      case (#variant(v)) toTextVariant(v.tag, v.value, options, depth);
+      // Func
+      case (#_func(f)) toTextFunc(f, options, depth);
       // Service
       case (#service(s)) toTextService(s);
     };
   };
 
-  private func toTextService(principal : TransparencyState<Principal>) : Text {
+  private func toTextFunc(f : Func, options : ToTextOptions, depth : Nat) : Text {
+    "func \"" # Principal.toText(f.service) # "\"." # f.method;
+  };
+
+  private func toTextService(principal : Principal) : Text {
     let principalText : Text = toTextPrincipal(principal);
-    "service " # principalText;
+    "service (" # principalText # ")";
   };
 
-  private func toTextTrasparencyState<T>(state : TransparencyState<T>, converter : (T) -> Text) : Text {
-    switch (state) {
-      case (#transparent(p)) converter(p);
-      case (#opaque) "opaque";
-    };
+  private func toTextPrincipal(principal : Principal) : Text {
+    "principal \"" # Principal.toText(principal) # "\"";
   };
 
-  private func toTextPrincipal(principal : TransparencyState<Principal>) : Text {
-    let principalText : Text = toTextTrasparencyState(principal, Principal.toText);
-    "principal " # principalText;
-  };
-
-  private func toTextOpt(innerValue : ?Value, innerType : Type.Type) : Text {
-    let innerTextValue = switch (innerValue) {
-      case (null) "null";
-      case (?v) toText(v, innerType);
-    };
+  private func toTextOpt(innerValue : Value, options : ToTextOptions, depth : Nat) : Text {
+    let innerTextValue = toTextAdvancedInternal(innerValue, options, depth + 1);
     "opt " # innerTextValue;
   };
 
-  private func toTextVector(innerValues : [Value], innerType : Type.Type) : Text {
+  private func toTextVector(innerValues : [Value], options : ToTextOptions, depth : Nat) : Text {
     // Convert each inner value to a Text value
-    let textValues = Iter.map<Value, Text>(Iter.fromArray(innerValues), func(v) = toText(v, innerType));
+    let textValues = Iter.map<Value, Text>(Iter.fromArray(innerValues), func(v) = toTextAdvancedInternal(v, options, depth + 1));
     // ex: [1, 2, 3]
-    "[" # Text.join(", ", textValues) # "]";
+    formatObj("vec {", "}", ",", Iter.toArray(textValues), options.indented, depth);
   };
 
-  private type RecordField = {
-    tag : Tag.Tag;
-    value : Value;
-    _type : Type.Type;
-  };
-
-  private func toTextRecord(fields : [RecordField]) : Text {
+  private func toTextRecord(fields : [RecordFieldValue], options : ToTextOptions, depth : Nat) : Text {
     // Order fields by tag
-    let orderedFields : Iter.Iter<RecordField> = Iter.sort<RecordField>(
+    let orderedFields : Iter.Iter<RecordFieldValue> = Iter.sort<RecordFieldValue>(
       Iter.fromArray(fields),
-      func(f1 : RecordField, f2 : RecordField) : Order.Order = Tag.compare(f1.tag, f2.tag),
+      func(f1, f2) = Tag.compare(f1.tag, f2.tag),
     );
-
+    var isTuple = true;
+    var i : Nat32 = 0;
+    label l for (f in orderedFields) {
+      // Check to see if the hashes are 0, 1, 2, etc... if so its a tuple
+      if (f.tag != #hash(i)) {
+        isTuple := false;
+        break l;
+      };
+      i += 1;
+    };
     // Convert field to text representation
-    let orderedTextFields : Iter.Iter<Text> = Iter.map<RecordField, Text>(
-      Iter.fromArray(fields),
-      func(f : RecordField) : Text {
-        let key : Text = Tag.toText(f.tag);
-        let valueText : Text = toText(f.value, f._type);
-        key # " = " # valueText;
-      },
-    );
+    let textItems = if (isTuple) {
+      Iter.map<RecordFieldValue, Text>(
+        Iter.fromArray(fields),
+        func(f : RecordFieldValue) : Text {
+          // Just have value, but in order
+          toTextAdvancedInternal(f.value, options, depth + 1);
+        },
+      );
+    } else {
+      Iter.map<RecordFieldValue, Text>(
+        Iter.fromArray(fields),
+        func(f : RecordFieldValue) : Text {
+          let key : Text = toTextTag(f.tag, options.tagHashMapper);
+          let valueText : Text = toTextAdvancedInternal(f.value, options, depth + 1);
+          key # " = " # valueText;
+        },
+      );
+    };
 
-    let fieldsText = Text.join("; ", orderedTextFields);
-    "record { " # fieldsText # " }";
+    formatObj("record {", "}", ";", Iter.toArray(textItems), options.indented, depth);
   };
 
-  private func toTextVariant(tag : Tag, optionValue : Value, optionType : Type.Type) : Text {
-    let key : Text = Tag.toText(tag);
-    let valueText : Text = toText(optionValue, optionType);
-    "variant { " # key # " = " # valueText # " }";
+  private func toTextVariant(tag : Tag, optionValue : Value, options : ToTextOptions, depth : Nat) : Text {
+    let key : Text = toTextTag(tag, options.tagHashMapper);
+    let value = switch (optionValue) {
+      case (#null_) "";
+      case (v) {
+        let valueText : Text = toTextAdvancedInternal(optionValue, options, depth + 1);
+        " = " # valueText;
+      };
+    };
+    "variant { " # key # value # " }";
   };
 
-  private func getTypeMismatchError(_type : Type.Type, value : Value) : Text {
-    "Invalid type and value combo. Type: " # debug_show (_type) # " Value: " # debug_show (value);
+  private func toTextTag(tag : Tag, tagHashMapper : ?TagHashMapper) : Text {
+    switch (tag) {
+      // Return name if set
+      case (#name(n)) "\"" # n # "\"";
+
+      case (#hash(id)) {
+        switch (tagHashMapper) {
+          // If there is no hash -> name mapper, just return the id
+          case (null) Nat32.toText(id);
+          // Use custom mapper
+          case (?m) switch (m(id)) {
+            // If there is no name found, just return the id
+            case (null) Nat32.toText(id);
+            // If there is a name found, use it
+            case (?n) n;
+          };
+        };
+      };
+    };
   };
 
+  private func formatObj(
+    prefix : Text,
+    suffix : Text,
+    seperator : Text,
+    items : [Text],
+    indented : Bool,
+    depth : Nat,
+  ) : Text {
+    if (items.size() < 1) {
+      return prefix # suffix;
+    };
+    if (indented) {
+      // If indented, always do new line and X tabs depending on depth
+      var indentation = "\n";
+      if (depth > 0) {
+        Iter.iterate<Nat>(
+          Iter.range(1, depth),
+          func(i) {
+            // Add an extra tab per depth
+            indentation #= "\t";
+          },
+        );
+      };
+      let contents = Text.join(seperator # indentation # "\t", Iter.fromArray(items));
+      prefix # indentation # "\t" # contents # indentation # suffix;
+    } else {
+      let contents = Text.join(seperator # " ", Iter.fromArray(items));
+
+      prefix # " " # contents # " " # suffix;
+    };
+  };
 };

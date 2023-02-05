@@ -14,7 +14,7 @@ module {
   };
 
   public func toText(arg : Arg) : Text {
-    Value.toText(arg.value, arg._type);
+    Value.toText(arg.value);
   };
 
 };

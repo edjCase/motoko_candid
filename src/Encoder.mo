@@ -307,7 +307,7 @@ module {
       case (#nat16) return #indexOrCode(TypeCode.nat16);
       case (#nat32) return #indexOrCode(TypeCode.nat32);
       case (#nat64) return #indexOrCode(TypeCode.nat64);
-      case (#_null) return #indexOrCode(TypeCode._null);
+      case (#null_) return #indexOrCode(TypeCode.null_);
       case (#bool) return #indexOrCode(TypeCode.bool);
       case (#float32) return #indexOrCode(TypeCode.float32);
       case (#float64) return #indexOrCode(TypeCode.float64);
@@ -413,7 +413,7 @@ module {
         case (#nat16(n16)) NatX.encodeNat16(buffer, n16, #lsb);
         case (#nat32(n32)) NatX.encodeNat32(buffer, n32, #lsb);
         case (#nat64(n64)) NatX.encodeNat64(buffer, n64, #lsb);
-        case (#_null) {}; // Nothing to encode
+        case (#null_) {}; // Nothing to encode
         case (#bool(b)) buffer.add(if (b) 0x01 else 0x00);
         case (#float32(f)) {
           let floatX : FloatX.FloatX = FloatX.fromFloat(f, #f32);
@@ -438,8 +438,8 @@ module {
     switch (value) {
       case (#opt(o)) {
         switch (o) {
-          case (null) buffer.add(0x00); // Indicate there is no value
-          case (?v) {
+          case (#null_) buffer.add(0x00); // Indicate there is no value
+          case (v) {
             buffer.add(0x01); // Indicate there is a value
             let innerType : ReferenceType = switch (types[i]) {
               case (#opt(inner)) inner;
@@ -511,16 +511,14 @@ module {
     };
   };
 
-  private func encodeTransparencyState<T>(buffer : Buffer.Buffer<Nat8>, r : TransparencyState.TransparencyState<T>, encodeInner : (Buffer.Buffer<Nat8>, T) -> ()) {
-    switch (r) {
-      case (#opaque) {
-        buffer.add(0x00); // 0 if opaque
-      };
-      case (#transparent(t)) {
-        buffer.add(0x01); // 1 if transparent
-        encodeInner(buffer, t);
-      };
-    };
+  private func encodeTransparencyState<T>(
+    buffer : Buffer.Buffer<Nat8>,
+    r : T,
+    encodeInner : (Buffer.Buffer<Nat8>, T) -> (),
+  ) {
+    // TODO opaque, how to handle?
+    buffer.add(0x01); // 1 if transparent
+    encodeInner(buffer, r);
   };
 
   private func encodePrincipal(buffer : Buffer.Buffer<Nat8>, p : Principal) {

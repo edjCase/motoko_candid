@@ -1,5 +1,5 @@
 module {
-    public let _null = -1;
+    public let null_ = -1;
     public let bool = -2;
     public let nat = -3;
     public let int = -4;
@@ -23,4 +23,4 @@ module {
     public let _func = -22;
     public let service = -23;
     public let principal = -24;
-}
+};
