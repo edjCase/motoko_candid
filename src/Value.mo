@@ -236,9 +236,8 @@ module {
     "func \"" # Principal.toText(f.service) # "\"." # f.method;
   };
 
-  private func toTextService(principal : Principal) : Text {
-    let principalText : Text = toTextPrincipal(principal);
-    "service (" # principalText # ")";
+  private func toTextService(serviceId : Principal) : Text {
+    "service \"" # Principal.toText(serviceId) # "\"";
   };
 
   private func toTextPrincipal(principal : Principal) : Text {

@@ -119,7 +119,7 @@ module {
         areEqual("func \"77i6o-oqaaa-aaaag-qbm6q-cai\".m1", null, #_func({ method = "m1"; service = Principal.fromText("77i6o-oqaaa-aaaag-qbm6q-cai") }));
 
         // Service
-        areEqual("service (principal \"77i6o-oqaaa-aaaag-qbm6q-cai\")", null, #service(Principal.fromText("77i6o-oqaaa-aaaag-qbm6q-cai")));
+        areEqual("service \"77i6o-oqaaa-aaaag-qbm6q-cai\"", null, #service(Principal.fromText("77i6o-oqaaa-aaaag-qbm6q-cai")));
 
         areEqualAdvanced(
             "record { \"11\" = opt true?; \"hello\" = record { \"🤣\" = variant { 2 = 1 } } }",
