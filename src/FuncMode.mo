@@ -11,8 +11,8 @@ import Text "mo:base/Text";
 module {
 
   public type FuncMode = {
-    #oneWay;
-    #_query;
+    #oneway;
+    #query_;
   };
 
 };

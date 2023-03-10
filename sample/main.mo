@@ -6,23 +6,23 @@ import Debug "mo:base/Debug";
 actor Sample {
   func call_raw(p : Principal, m : Text, a : Blob) : async Blob {
 
-      // Parse parameters
-      let args: [Arg.Arg] = switch(Decoder.decode(a)) {
-        case (null) Debug.trap("Invalid candid");
-        case (?c) c;
-      };
+    // Parse parameters
+    let args : [Arg.Arg] = switch (Decoder.decode(a)) {
+      case (null) Debug.trap("Invalid candid");
+      case (?c) c;
+    };
 
-      // Validate request...
-      
-      // Process request...
+    // Validate request...
 
-      // Return result
-      let returnArgs: [Arg.Arg] = [
-        {
-          _type=#bool;
-          value=#bool(true)
-        }
-      ];
-      Encoder.encode(returnArgs);
+    // Process request...
+
+    // Return result
+    let returnArgs : [Arg.Arg] = [
+      {
+        type_ = #bool;
+        value = #bool(true);
+      },
+    ];
+    Encoder.encode(returnArgs);
   };
 };
