@@ -9,8 +9,8 @@ module {
   public type ReferenceType = Int;
 
   public type RecordFieldReferenceType<TReference> = {
-    tag: Tag.Tag;
-    _type : TReference;
+    tag : Tag.Tag;
+    type_ : TReference;
   };
 
   public type VariantOptionReferenceType<TReference> = RecordFieldReferenceType<TReference>;
@@ -21,41 +21,35 @@ module {
     returnTypes : [TReference];
   };
 
-
-
   public type ServiceReferenceType<TReference> = {
     methods : [(Text, TReference)];
   };
-
-
 
   public type ShallowCompoundType<TReference> = {
     #opt : TReference;
     #vector : TReference;
     #record : [RecordFieldReferenceType<TReference>];
     #variant : [VariantOptionReferenceType<TReference>];
-    #_func : FuncReferenceType<TReference>;
+    #func_ : FuncReferenceType<TReference>;
     #service : ServiceReferenceType<TReference>;
   };
 
-
-
-  public func tagObjCompare(o1: {tag: Tag.Tag}, o2: {tag: Tag.Tag}) : Order.Order {
+  public func tagObjCompare(o1 : { tag : Tag.Tag }, o2 : { tag : Tag.Tag }) : Order.Order {
     Tag.compare(o1.tag, o2.tag);
   };
 
   public func arraysAreEqual<T>(
-    a1: [T],
-    a2: [T],
-    orderFunc: ?((T, T) -> Order.Order),
-    equalFunc: (T, T) -> Bool,
+    a1 : [T],
+    a2 : [T],
+    orderFunc : ?((T, T) -> Order.Order),
+    equalFunc : (T, T) -> Bool,
   ) : Bool {
     if (a1.size() != a2.size()) {
       return false;
     };
     let (orderedA1, orderedA2) = switch (orderFunc) {
-      case (null) (a1, a2);
-      case (?o) (Array.sort(a1, o), Array.sort(a2, o));
+      case (null)(a1, a2);
+      case (?o)(Array.sort(a1, o), Array.sort(a2, o));
     };
     for (i in Iter.range(0, orderedA1.size() - 1)) {
       let a1I = orderedA1[i];
@@ -66,4 +60,4 @@ module {
     };
     true;
   };
-}
+};

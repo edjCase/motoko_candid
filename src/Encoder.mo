@@ -18,7 +18,6 @@ import Value "./Value";
 import Type "./Type";
 import Tag "./Tag";
 import InternalTypes "./InternalTypes";
-import TransparencyState "./TransparencyState";
 import FuncMode "./FuncMode";
 import TypeCode "./TypeCode";
 import Arg "./Arg";
@@ -52,7 +51,7 @@ module {
     let argTypes = Buffer.Buffer<Type.Type>(args.size());
     let argValues = Buffer.Buffer<Value.Value>(args.size());
     for (arg in Iter.fromArray(args)) {
-      argTypes.add(arg._type);
+      argTypes.add(arg.type_);
       argValues.add(arg.value);
     };
 
@@ -86,7 +85,7 @@ module {
       case (#opt(o)) TypeCode.opt;
       case (#vector(v)) TypeCode.vector;
       case (#record(r)) TypeCode.record;
-      case (#_func(f)) TypeCode._func;
+      case (#func_(f)) TypeCode.func_;
       case (#service(s)) TypeCode.service;
       case (#variant(v)) TypeCode.variant;
     };
@@ -102,10 +101,10 @@ module {
         NatX.encodeNat(buffer, r.size(), #unsignedLEB128); // Encode field count
         for (field in Iter.fromArray(r)) {
           NatX.encodeNat(buffer, Nat32.toNat(Tag.hash(field.tag)), #unsignedLEB128); // Encode field tag
-          IntX.encodeInt(buffer, field._type, #signedLEB128); // Encode reference index or type code
+          IntX.encodeInt(buffer, field.type_, #signedLEB128); // Encode reference index or type code
         };
       };
-      case (#_func(f)) {
+      case (#func_(f)) {
         let argCount = f.argTypes.size();
         NatX.encodeNat(buffer, argCount, #unsignedLEB128); // Encode arg count
 
@@ -125,8 +124,8 @@ module {
 
         for (mode in Iter.fromArray(f.modes)) {
           let value : Int = switch (mode) {
-            case (#_query) 1;
-            case (#oneWay) 2;
+            case (#query_) 1;
+            case (#oneway) 2;
           };
           IntX.encodeInt(buffer, value, #signedLEB128); // Encode each mode
         };
@@ -143,7 +142,7 @@ module {
         NatX.encodeNat(buffer, v.size(), #unsignedLEB128); // Encode option count
         for (option in Iter.fromArray(v)) {
           NatX.encodeNat(buffer, Nat32.toNat(Tag.hash(option.tag)), #unsignedLEB128); // Encode option tag
-          IntX.encodeInt(buffer, option._type, #signedLEB128); // Encode reference index or type code
+          IntX.encodeInt(buffer, option.type_, #signedLEB128); // Encode reference index or type code
         };
       };
     };
@@ -158,7 +157,7 @@ module {
     #vector : Type.Type;
     #record : [RecordFieldType];
     #variant : [VariantOptionType];
-    #_func : Type.FuncType;
+    #func_ : Type.FuncType;
     #service : Type.ServiceType;
   };
 
@@ -215,8 +214,8 @@ module {
             let resolvedFields = Array.map(
               r,
               func(f : RecordFieldReferenceType<ReferenceOrRecursiveType>) : RecordFieldReferenceType<ReferenceType> {
-                let innerResolution : Int = mapArg(f._type);
-                { tag = f.tag; _type = innerResolution };
+                let innerResolution : Int = mapArg(f.type_);
+                { tag = f.tag; type_ = innerResolution };
               },
             );
             #record(resolvedFields);
@@ -225,16 +224,16 @@ module {
             let resolvedOptions = Array.map(
               v,
               func(o : VariantOptionReferenceType<ReferenceOrRecursiveType>) : VariantOptionReferenceType<ReferenceType> {
-                let innerResolution : Int = mapArg(o._type);
-                { tag = o.tag; _type = innerResolution };
+                let innerResolution : Int = mapArg(o.type_);
+                { tag = o.tag; type_ = innerResolution };
               },
             );
             #variant(resolvedOptions);
           };
-          case (#_func(f)) {
+          case (#func_(f)) {
             let argTypes = Array.map(f.argTypes, mapArg);
             let returnTypes = Array.map(f.returnTypes, mapArg);
-            #_func({
+            #func_({
               modes = f.modes;
               argTypes = argTypes;
               returnTypes = returnTypes;
@@ -278,10 +277,10 @@ module {
       case (#vector(v)) #vector(v);
       case (#variant(v)) #variant(v);
       case (#record(r)) #record(r);
-      case (#_func(f)) #_func(f);
+      case (#func_(f)) #func_(f);
       case (#service(s)) #service(s);
       case (#recursiveType(rT)) {
-        let innerReferenceType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, rT._type);
+        let innerReferenceType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, rT.type_);
         switch (innerReferenceType) {
           case (#indexOrCode(i)) {
             if (i < 0) {
@@ -335,8 +334,8 @@ module {
           Iter.map<RecordFieldType, RecordFieldReferenceType<ReferenceOrRecursiveType>>(
             Iter.fromArray(r),
             func(f : RecordFieldType) : RecordFieldReferenceType<ReferenceOrRecursiveType> {
-              let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, f._type);
-              { tag = f.tag; _type = indexOrCode };
+              let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, f.type_);
+              { tag = f.tag; type_ = indexOrCode };
             },
           ),
         );
@@ -348,15 +347,15 @@ module {
           Iter.map<VariantOptionType, VariantOptionReferenceType<ReferenceOrRecursiveType>>(
             Iter.fromArray(v),
             func(o : VariantOptionType) : VariantOptionReferenceType<ReferenceOrRecursiveType> {
-              let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, o._type);
-              { tag = o.tag; _type = indexOrCode };
+              let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, o.type_);
+              { tag = o.tag; type_ = indexOrCode };
             },
           ),
         );
         let sortedOptions = Array.sort<RecordFieldReferenceType<ReferenceOrRecursiveType>>(options, func(o1, o2) { Tag.compare(o1.tag, o2.tag) });
         #variant(sortedOptions);
       };
-      case (#_func(fn)) {
+      case (#func_(fn)) {
         let funcTypesToReference = func(types : [Type.Type]) : [ReferenceOrRecursiveType] {
           let refTypeBuffer = Buffer.Buffer<ReferenceOrRecursiveType>(types.size());
           for (t in Iter.fromArray(types)) {
@@ -367,7 +366,7 @@ module {
         };
         let argTypes : [ReferenceOrRecursiveType] = funcTypesToReference(fn.argTypes);
         let returnTypes : [ReferenceOrRecursiveType] = funcTypesToReference(fn.returnTypes);
-        #_func({
+        #func_({
           modes = fn.modes;
           argTypes = argTypes;
           returnTypes = returnTypes;
@@ -377,7 +376,7 @@ module {
         let methods : [(Text, ReferenceOrRecursiveType)] = Array.map<(Text, Type.FuncType), (Text, ReferenceOrRecursiveType)>(
           s.methods,
           func(a : (Text, Type.FuncType)) : (Text, ReferenceOrRecursiveType) {
-            let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, #_func(a.1));
+            let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, #func_(a.1));
             (a.0, refType);
           },
         );
@@ -462,7 +461,7 @@ module {
       case (#record(r)) {
         let innerTypes : TrieMap.TrieMap<Tag, ReferenceType> = switch (types[i]) {
           case (#record(inner)) {
-            let innerKV = Iter.fromArray(Array.map<RecordFieldReferenceType<ReferenceType>, (Tag, ReferenceType)>(inner, func(i) { (i.tag, i._type) }));
+            let innerKV = Iter.fromArray(Array.map<RecordFieldReferenceType<ReferenceType>, (Tag, ReferenceType)>(inner, func(i) { (i.tag, i.type_) }));
             TrieMap.fromEntries<Tag, ReferenceType>(innerKV, Tag.equal, Tag.hash);
           };
           case (_) Debug.trap("Invalid type definition. Doesn't match value");
@@ -478,13 +477,13 @@ module {
           encodeValue(buffer, kv.value, innerType, types); // Encode each value in order
         };
       };
-      case (#_func(f)) {
+      case (#func_(f)) {
         encodeTransparencyState<Value.Func>(
           buffer,
           f,
           func(b, f) {
             let innerType : InternalTypes.FuncReferenceType<ReferenceType> = switch (types[i]) {
-              case (#_func(inner)) inner;
+              case (#func_(inner)) inner;
               case (_) Debug.trap("Invalid type definition. Doesn't match value");
             };
             encodeValue(buffer, #principal(f.service), TypeCode.principal, types); // Encode the service
@@ -502,7 +501,7 @@ module {
         switch (typeIndex) {
           case (?i) {
             NatX.encodeNat(buffer, i, #unsignedLEB128); // Encode tag value
-            encodeValue(buffer, v.value, innerTypes[i]._type, types); // Encode value
+            encodeValue(buffer, v.value, innerTypes[i].type_, types); // Encode value
           };
           case (null) Debug.trap("Invalid type definition. Doesn't match value");
         };

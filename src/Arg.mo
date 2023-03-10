@@ -10,7 +10,7 @@ import Array "mo:base/Array";
 module {
   public type Arg = {
     value : Value.Value;
-    _type : Type.Type;
+    type_ : Type.Type;
   };
 
   public func toText(arg : Arg) : Text {

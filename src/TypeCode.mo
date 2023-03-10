@@ -20,7 +20,7 @@ module {
     public let vector = -19;
     public let record = -20;
     public let variant = -21;
-    public let _func = -22;
+    public let func_ = -22;
     public let service = -23;
     public let principal = -24;
 };

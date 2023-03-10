@@ -60,7 +60,7 @@ module {
     #vector : [Value];
     #record : [RecordFieldValue];
     #variant : VariantOptionValue;
-    #_func : Func;
+    #func_ : Func;
     #service : Principal;
     #principal : Principal;
   };
@@ -145,9 +145,9 @@ module {
         };
         true;
       };
-      case (#_func(f1)) {
+      case (#func_(f1)) {
         let f2 = switch (v2) {
-          case (#_func(f2)) f2;
+          case (#func_(f2)) f2;
           case (_) return false;
         };
         if (f1.method != f2.method) {
@@ -226,7 +226,7 @@ module {
       // Variant
       case (#variant(v)) toTextVariant(v.tag, v.value, options, depth);
       // Func
-      case (#_func(f)) toTextFunc(f, options, depth);
+      case (#func_(f)) toTextFunc(f, options, depth);
       // Service
       case (#service(s)) toTextService(s);
     };
