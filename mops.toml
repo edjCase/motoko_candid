@@ -4,7 +4,7 @@ xtended-numbers = "0.2.0"
 
 [package]
 name = "candid"
-version = "1.0.0"
+version = "1.0.2"
 description = "A Candid library for encoding and decoding candid bytes"
 repository = "https://github.com/edjcase/motoko_candid"
 
