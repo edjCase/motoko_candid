@@ -292,7 +292,7 @@ module {
             case (null)();
             case (?recursiveId) {
               parentTypes.put(index, (recursiveId.0, true));
-              return ?#recursiveReference(recursiveId.0); // Stop and return recursive reference
+              return ? #recursiveReference(recursiveId.0); // Stop and return recursive reference
             };
           };
 
@@ -361,6 +361,7 @@ module {
             };
           };
           let isRecursive = parentTypes.get(index)!.1;
+          let _ = parentTypes.remove(index); // Remove to not affect sibling/parent types
           if (isRecursive) {
             #recursiveType({
               id = recursiveId;
