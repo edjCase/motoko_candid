@@ -173,13 +173,13 @@ module {
       shallowArgs.add(t);
     };
 
-    let shallowTypesArray : [ShallowCompoundType<ReferenceOrRecursiveType>] = Buffer.toArray(shallowTypes);
-    let resolvedCompoundTypes = Buffer.Buffer<ShallowCompoundType<ReferenceType>>(args.size());
+    let resolvedCompoundTypes = Buffer.Buffer<ShallowCompoundType<ReferenceType>>(shallowTypes.size());
     let typeIndexOrCodeList = Buffer.Buffer<Int>(args.size());
-    for (sArg in Iter.fromArray(Buffer.toArray(shallowArgs))) {
-      let indexOrCode = resolveArg(sArg, shallowTypesArray, recursiveTypeIndexMap, resolvedCompoundTypes);
+    for (sArg in shallowArgs.vals()) {
+      let indexOrCode = resolveArg(sArg, shallowTypes, recursiveTypeIndexMap, resolvedCompoundTypes);
       typeIndexOrCodeList.add(indexOrCode);
     };
+
     {
       compoundTypes = Buffer.toArray(resolvedCompoundTypes);
       typeCodes = Buffer.toArray(typeIndexOrCodeList);
@@ -188,7 +188,7 @@ module {
 
   private func resolveArg(
     arg : ReferenceOrRecursiveType,
-    shallowTypeArray : [ShallowCompoundType<ReferenceOrRecursiveType>],
+    shallowTypes : Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>,
     recursiveTypeIndexMap : TrieMap.TrieMap<Text, Nat>,
     resolvedCompoundTypes : Buffer.Buffer<ShallowCompoundType<ReferenceType>>,
   ) : Int {
@@ -197,11 +197,21 @@ module {
         if (i < 0) {
           return i; // Primitive
         };
+        let typeIndex : Nat = Int.abs(i);
+        switch (resolvedCompoundTypes.getOpt(typeIndex)) {
+          case (?t) {
+            // Already resolved
+            return typeIndex;
+          };
+          case (null) {
+            // Need to resolve
+          };
+        };
         let mapArg = func(t : ReferenceOrRecursiveType) : ReferenceType {
-          resolveArg(t, shallowTypeArray, recursiveTypeIndexMap, resolvedCompoundTypes);
+          resolveArg(t, shallowTypes, recursiveTypeIndexMap, resolvedCompoundTypes);
         };
         // Compound
-        let t : ShallowCompoundType<ReferenceType> = switch (shallowTypeArray[Int.abs(i)]) {
+        let t : ShallowCompoundType<ReferenceType> = switch (shallowTypes.get(typeIndex)) {
           case (#opt(o)) {
             let innerResolution = mapArg(o);
             #opt(innerResolution);
@@ -253,7 +263,7 @@ module {
           };
         };
         let index = resolvedCompoundTypes.size();
-        resolvedCompoundTypes.add(t);
+        resolvedCompoundTypes.insert(typeIndex, t);
         index;
       };
       case (#recursiveReference(r)) {
@@ -337,7 +347,7 @@ module {
               let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, f.type_);
               { tag = f.tag; type_ = indexOrCode };
             },
-          ),
+          )
         );
         let sortedFields = Array.sort<RecordFieldReferenceType<ReferenceOrRecursiveType>>(fields, func(f1, f2) { Tag.compare(f1.tag, f2.tag) });
         #record(sortedFields);
@@ -350,7 +360,7 @@ module {
               let indexOrCode : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, o.type_);
               { tag = o.tag; type_ = indexOrCode };
             },
-          ),
+          )
         );
         let sortedOptions = Array.sort<RecordFieldReferenceType<ReferenceOrRecursiveType>>(options, func(o1, o2) { Tag.compare(o1.tag, o2.tag) });
         #variant(sortedOptions);
