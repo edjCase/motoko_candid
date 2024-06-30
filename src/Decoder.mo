@@ -1,7 +1,6 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import FloatX "mo:xtended-numbers/FloatX";
 import Hash "mo:base/Hash";
 import Int "mo:base/Int";
@@ -10,11 +9,9 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
 import NatX "mo:xtended-numbers/NatX";
-import Order "mo:base/Order";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import TrieMap "mo:base/TrieMap";
-import TrieSet "mo:base/TrieSet";
 import Value "./Value";
 import Type "./Type";
 import Tag "./Tag";
@@ -28,6 +25,14 @@ module {
   type Tag = Tag.Tag;
   type ReferenceType = InternalTypes.ReferenceType;
 
+  /// Decodes a Candid-encoded Blob into an array of Candid arguments.
+  /// If the decoding fails at any point, it returns null.
+  ///
+  /// ```motoko
+  /// let encodedBlob : Blob = ...;
+  ///
+  /// let ?args = Decoder.decode(encodedBlob) else return #err("Failed to decode Candid data");
+  /// ```
   public func decode(candidBytes : Blob) : ?[Arg.Arg] {
     do ? {
       let bytes : Iter.Iter<Nat8> = Iter.fromArray(Blob.toArray(candidBytes));
@@ -289,7 +294,7 @@ module {
 
           // Check to see if a parent type is being referenced (cycle)
           switch (parentTypes.get(index)) {
-            case (null)();
+            case (null) ();
             case (?recursiveId) {
               parentTypes.put(index, (recursiveId.0, true));
               return ? #recursiveReference(recursiveId.0); // Stop and return recursive reference

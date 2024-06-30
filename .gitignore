@@ -1,10 +1,2 @@
-# Various IDEs and Editors
 .vscode/
-.idea/
-**/*~
-
-.dfx/
-build/
 .mops
-.vessel
-*.wasm

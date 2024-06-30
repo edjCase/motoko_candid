@@ -1,12 +1,12 @@
 [dependencies]
-base = "0.8.3"
-xtended-numbers = "0.2.0"
+base = "0.11.1"
+xtended-numbers = "0.3.1"
 
 [package]
 name = "candid"
-version = "1.0.2"
+version = "1.1.0"
 description = "A Candid library for encoding and decoding candid bytes"
 repository = "https://github.com/edjcase/motoko_candid"
 
 [dev-dependencies]
-test = "1.0.1"
+test = "2.0.0"

@@ -3,14 +3,12 @@ import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
 import FloatX "mo:xtended-numbers/FloatX";
-import Hash "mo:base/Hash";
 import Int "mo:base/Int";
 import IntX "mo:xtended-numbers/IntX";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
 import NatX "mo:xtended-numbers/NatX";
-import Order "mo:base/Order";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import TrieMap "mo:base/TrieMap";
@@ -18,7 +16,6 @@ import Value "./Value";
 import Type "./Type";
 import Tag "./Tag";
 import InternalTypes "./InternalTypes";
-import FuncMode "./FuncMode";
 import TypeCode "./TypeCode";
 import Arg "./Arg";
 
@@ -35,12 +32,48 @@ module {
   type RecordFieldReferenceType<T> = InternalTypes.RecordFieldReferenceType<T>;
   type VariantOptionReferenceType<T> = InternalTypes.VariantOptionReferenceType<T>;
 
+  /// Encodes an array of Candid arguments into a Blob.
+  ///
+  /// This function takes an array of Candid arguments and encodes them into a binary format
+  /// as specified by the Candid specification. The result is returned as a Blob.
+  ///
+  /// ```motoko
+  /// import Arg "mo:candid/Arg";
+  /// import CandidEncoder "mo:candid/Encoder";
+  ///
+  /// let args : [Arg.Arg] = [
+  ///   { type_ = #nat; value = #nat(42) },
+  ///   { type_ = #text; value = #text("Hello, Candid!") }
+  /// ];
+  ///
+  /// let encodedBlob : Blob = CandidEncoder.encode(args);
+  /// // encodedBlob now contains the Candid-encoded representation of the arguments
+  /// ```
   public func encode(args : [Arg.Arg]) : Blob {
     let buffer = Buffer.Buffer<Nat8>(10);
     encodeToBuffer(buffer, args);
     Blob.fromArray(Buffer.toArray(buffer));
   };
 
+  /// Encodes an array of Candid arguments into a provided buffer.
+  ///
+  /// This function takes a mutable buffer and an array of Candid arguments, and encodes the arguments
+  /// into the buffer according to the Candid specification. The buffer is modified in-place.
+  ///
+  /// ```motoko
+  /// import Buffer "mo:base/Buffer";
+  /// import Arg "mo:candid/Arg";
+  /// import CandidEncoder "mo:candid/Encoder";
+  ///
+  /// let buffer = Buffer.Buffer<Nat8>(10);
+  /// let args : [Arg.Arg] = [
+  ///   { type_ = #nat; value = #nat(42) },
+  ///   { type_ = #text; value = #text("Hello, Candid!") }
+  /// ];
+  ///
+  /// CandidEncoder.encodeToBuffer(buffer, args);
+  /// // buffer now contains the Candid-encoded representation of the arguments
+  /// ```
   public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg.Arg]) {
     // "DIDL" prefix
     buffer.add(0x44);
@@ -492,7 +525,7 @@ module {
           buffer,
           f,
           func(b, f) {
-            let innerType : InternalTypes.FuncReferenceType<ReferenceType> = switch (types[i]) {
+            let _ : InternalTypes.FuncReferenceType<ReferenceType> = switch (types[i]) {
               case (#func_(inner)) inner;
               case (_) Debug.trap("Invalid type definition. Doesn't match value");
             };

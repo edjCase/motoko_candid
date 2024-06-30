@@ -32,4 +32,4 @@ jobs:
         run: mops install
 
       - name: Run Tests
-        run: make test
+        run: mops test

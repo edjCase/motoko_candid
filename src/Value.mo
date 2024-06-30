@@ -1,12 +1,8 @@
-import Array "mo:base/Array";
 import FloatX "mo:xtended-numbers/FloatX";
 import InternalTypes "InternalTypes";
 import Iter "mo:base/Iter";
 import Order "mo:base/Order";
 import Tag "./Tag";
-import Type "./Type";
-import Buffer "mo:base/Buffer";
-import Prelude "mo:base/Prelude";
 import Bool "mo:base/Bool";
 import Float "mo:base/Float";
 import Principal "mo:base/Principal";
@@ -20,7 +16,6 @@ import Int32 "mo:base/Int32";
 import Int16 "mo:base/Int16";
 import Int "mo:base/Int";
 import Int8 "mo:base/Int8";
-import Debug "mo:base/Debug";
 import Text "mo:base/Text";
 
 module {
@@ -122,7 +117,7 @@ module {
           ?(
             func(t1 : RecordFieldValue, t2 : RecordFieldValue) : Order.Order {
               Tag.compare(t1.tag, t2.tag);
-            },
+            }
           ),
           func(t1 : RecordFieldValue, t2 : RecordFieldValue) : Bool {
             if (not Tag.equal(t1.tag, t2.tag)) {
@@ -184,9 +179,9 @@ module {
     switch (options.toTextOverride) {
       case (?o) switch (o(value)) {
         case (?t) return t;
-        case (_)();
+        case (_) ();
       };
-      case (_)();
+      case (_) ();
     };
     switch (value) {
       // Nat
@@ -232,7 +227,7 @@ module {
     };
   };
 
-  private func toTextFunc(f : Func, options : ToTextOptions, depth : Nat) : Text {
+  private func toTextFunc(f : Func, _ : ToTextOptions, _ : Nat) : Text {
     "func \"" # Principal.toText(f.service) # "\"." # f.method;
   };
 

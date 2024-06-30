@@ -73,6 +73,15 @@ module {
     indented : Bool;
   };
 
+  /// Compares two Type values for equality.
+  /// Returns true if the types are equal, false otherwise.
+  ///
+  /// ```motoko
+  /// let type1 : Type = #opt(#nat);
+  /// let type2 : Type = #opt(#nat);
+  /// let areEqual = Type.equal(type1, type2);
+  /// // areEqual is true
+  /// ```
   public func equal(v1 : Type, v2 : Type) : Bool {
     switch (v1) {
       case (#opt(o1)) {
@@ -101,7 +110,7 @@ module {
           ?(
             func(t1 : RecordFieldType, t2 : RecordFieldType) : Order.Order {
               Tag.compare(t1.tag, t2.tag);
-            },
+            }
           ),
           func(t1 : RecordFieldType, t2 : RecordFieldType) : Bool {
             if (not Tag.equal(t1.tag, t2.tag)) {
@@ -122,7 +131,7 @@ module {
           ?(
             func(t1 : VariantOptionType, t2 : VariantOptionType) : Order.Order {
               Tag.compare(t1.tag, t2.tag);
-            },
+            }
           ),
           func(t1 : VariantOptionType, t2 : VariantOptionType) : Bool {
             if (not Tag.equal(t1.tag, t2.tag)) {
@@ -153,7 +162,7 @@ module {
               let mv1 : Nat = getModeValue(m1);
               let mv2 : Nat = getModeValue(m2);
               Nat.compare(mv1, mv2);
-            },
+            }
           ),
           func(m1 : FuncMode.FuncMode, m2 : FuncMode.FuncMode) : Bool {
             m1 == m2;
@@ -191,7 +200,7 @@ module {
           ?(
             func(t1 : (Text, FuncType), t2 : (Text, FuncType)) : Order.Order {
               Text.compare(t1.0, t2.0);
-            },
+            }
           ),
           func(t1 : (Text, FuncType), t2 : (Text, FuncType)) : Bool {
             if (t1.0 != t1.0) {
@@ -210,7 +219,7 @@ module {
         equal(r1.type_, r2.type_);
       };
       case (#recursiveReference(r1)) {
-        let r2 = switch (v2) {
+        let _ = switch (v2) {
           case (#recursiveReference(r2)) r2;
           case (_) return false;
         };
@@ -220,14 +229,39 @@ module {
     };
   };
 
+  /// Converts a Type value to its text representation.
+  ///
+  /// ```motoko
+  /// let type : Type = #opt(#nat);
+  /// let text = Type.toText(type);
+  /// // text is "opt nat"
+  /// ```
   public func toText(value : Type) : Text {
     toTextAdvanced(value, { tagHashMapper = null; toTextOverride = null; indented = false });
   };
 
+  /// Converts a Type value to its indented text representation.
+  ///
+  /// ```motoko
+  /// let type : Type = #record([{tag = #name("nat"); type_ = #nat}, {tag = #name("text"); type_ = #text}]);
+  /// let text = Type.toTextIndented(type);
+  /// // text is "record {\n  nat : nat;\n  text : text;\n}"
+  /// ```
   public func toTextIndented(value : Type) : Text {
     toTextAdvanced(value, { tagHashMapper = null; toTextOverride = null; indented = true });
   };
 
+  /// Converts a Type value to its text representation with advanced options.
+  /// The `tagHashMapper` function can be used to map tag hashes to names (since tags are encoded as hashes in candid).
+  /// The `toTextOverride` function can be used to override the text representation of a type.
+  /// The `indented` flag can be used to format the text representation with indentation.
+  ///
+  /// ```motoko
+  /// let type : Type = #record([{tag = #name("nat"); type_ = #nat}, {tag = #name("text"); type_ = #text}]);
+  /// let options : ToTextOptions = { tagHashMapper = ?(func (t : Tag) : Text { "field_" # Nat32.toText(t) }); toTextOverride = null; indented = true };
+  /// let text = Type.toTextAdvanced(type, options);
+  /// // text is "record {\n  field_name : nat;\n  field_text : text;\n}"
+  /// ```
   public func toTextAdvanced(value : Type, options : ToTextOptions) : Text {
     toTextAdvancedInternal(value, options, 0);
   };
@@ -237,9 +271,9 @@ module {
     switch (options.toTextOverride) {
       case (?o) switch (o(value)) {
         case (?t) return t;
-        case (_)();
+        case (_) ();
       };
-      case (_)();
+      case (_) ();
     };
     switch (value) {
       // Nat
