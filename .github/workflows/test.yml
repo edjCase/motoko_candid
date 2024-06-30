@@ -1,34 +1,17 @@
-name: Makefile CI
-
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "16"
+          node-version: 20
+      - uses: ZenVoich/setup-mops@v1
 
-      - uses: aviate-labs/setup-dfx@v0.2.3
-        with:
-          dfx-version: 0.21.1
-
-      - name: install dfx
-        run: dfx cache install
-
-      - name: install mops
-        run: npm i ic-mops -g --yes
-
-      - name: Download MOPS packages
+      - name: install mops packages
         run: mops install
 
-      - name: Run Tests
+      - name: run tests
         run: mops test
