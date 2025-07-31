@@ -1,5 +1,4 @@
 import Array "mo:core/Array";
-import Blob "mo:core/Blob";
 import Char "mo:core/Char";
 import Decoder "../src/Decoder";
 import Encoder "../src/Encoder";
