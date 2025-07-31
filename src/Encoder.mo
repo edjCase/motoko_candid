@@ -1,17 +1,18 @@
-import Array "mo:base/Array";
-import Blob "mo:base/Blob";
-import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
+import Array "mo:core/Array";
+import Blob "mo:core/Blob";
+import Buffer "mo:buffer";
 import FloatX "mo:xtended-numbers/FloatX";
-import Int "mo:base/Int";
+import Int "mo:core/Int";
 import IntX "mo:xtended-numbers/IntX";
-import Iter "mo:base/Iter";
-import Nat "mo:base/Nat";
-import Nat32 "mo:base/Nat32";
+import Iter "mo:core/Iter";
+import Nat "mo:core/Nat";
+import Nat32 "mo:core/Nat32";
 import NatX "mo:xtended-numbers/NatX";
-import Principal "mo:base/Principal";
-import Text "mo:base/Text";
-import TrieMap "mo:base/TrieMap";
+import Principal "mo:core/Principal";
+import Text "mo:core/Text";
+import Map "mo:core/Map";
+import Runtime "mo:core/Runtime";
+import List "mo:core/List";
 import Value "./Value";
 import Type "./Type";
 import Tag "./Tag";
@@ -32,27 +33,26 @@ module {
   type RecordFieldReferenceType<T> = InternalTypes.RecordFieldReferenceType<T>;
   type VariantOptionReferenceType<T> = InternalTypes.VariantOptionReferenceType<T>;
 
-  /// Encodes an array of Candid arguments into a Blob.
+  /// Encodes an array of Candid arguments into a byte array.
   ///
   /// This function takes an array of Candid arguments and encodes them into a binary format
-  /// as specified by the Candid specification. The result is returned as a Blob.
+  /// as specified by the Candid specification. The result is returned as a byte array.
   ///
   /// ```motoko
-  /// import Arg "mo:candid/Arg";
-  /// import CandidEncoder "mo:candid/Encoder";
+  /// import Candid "mo:candid";
   ///
-  /// let args : [Arg.Arg] = [
+  /// let args : [Candid.Arg] = [
   ///   { type_ = #nat; value = #nat(42) },
   ///   { type_ = #text; value = #text("Hello, Candid!") }
   /// ];
   ///
-  /// let encodedBlob : Blob = CandidEncoder.encode(args);
-  /// // encodedBlob now contains the Candid-encoded representation of the arguments
+  /// let bytes : [Nat8] = Candid.toBytes(args);
+  /// // bytes now contains the Candid-encoded representation of the arguments
   /// ```
-  public func encode(args : [Arg.Arg]) : Blob {
-    let buffer = Buffer.Buffer<Nat8>(10);
-    encodeToBuffer(buffer, args);
-    Blob.fromArray(Buffer.toArray(buffer));
+  public func toBytes(args : [Arg.Arg]) : [Nat8] {
+    let buffer = List.empty<Nat8>();
+    toBytesBuffer(Buffer.fromList(buffer), args);
+    List.toArray(buffer);
   };
 
   /// Encodes an array of Candid arguments into a provided buffer.
@@ -61,36 +61,36 @@ module {
   /// into the buffer according to the Candid specification. The buffer is modified in-place.
   ///
   /// ```motoko
-  /// import Buffer "mo:base/Buffer";
-  /// import Arg "mo:candid/Arg";
-  /// import CandidEncoder "mo:candid/Encoder";
+  /// import Buffer "mo:buffer";
+  /// import Candid "mo:candid";
   ///
-  /// let buffer = Buffer.Buffer<Nat8>(10);
-  /// let args : [Arg.Arg] = [
+  /// let args : [Candid.Arg] = [
   ///   { type_ = #nat; value = #nat(42) },
   ///   { type_ = #text; value = #text("Hello, Candid!") }
   /// ];
   ///
-  /// CandidEncoder.encodeToBuffer(buffer, args);
-  /// // buffer now contains the Candid-encoded representation of the arguments
+  /// let list = List.empty<Nat8>();
+  /// let buffer = Buffer.fromList(list);
+  /// Candid.toBytesBuffer(buffer, args);
+  /// // list now contains the Candid-encoded representation of the arguments
   /// ```
-  public func encodeToBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg.Arg]) {
+  public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg.Arg]) {
     // "DIDL" prefix
-    buffer.add(0x44);
-    buffer.add(0x49);
-    buffer.add(0x44);
-    buffer.add(0x4c);
+    buffer.write(0x44);
+    buffer.write(0x49);
+    buffer.write(0x44);
+    buffer.write(0x4c);
 
-    let argTypes = Buffer.Buffer<Type.Type>(args.size());
-    let argValues = Buffer.Buffer<Value.Value>(args.size());
+    let argTypes = List.empty<Type.Type>();
+    let argValues = List.empty<Value.Value>();
     for (arg in Iter.fromArray(args)) {
-      argTypes.add(arg.type_);
-      argValues.add(arg.value);
+      List.add(argTypes, arg.type_);
+      List.add(argValues, arg.value);
     };
 
-    let table : CompoundTypeTable = getTypeInfo(Buffer.toArray(argTypes));
+    let table : CompoundTypeTable = getTypeInfo(List.toArray(argTypes));
     encodeTypes(buffer, table); // Encode compound type table + primitive types
-    encodeValues(buffer, table, Buffer.toArray(argValues)); // Encode all the values for the types
+    encodeValues(buffer, table, List.toArray(argValues)); // Encode all the values for the types
   };
 
   type CompoundTypeTable = {
@@ -100,82 +100,82 @@ module {
 
   private func encodeTypes(buffer : Buffer.Buffer<Nat8>, table : CompoundTypeTable) {
 
-    NatX.encodeNat(buffer, table.compoundTypes.size(), #unsignedLEB128); // Encode compound type count
+    NatX.toNatBytesBuffer(buffer, table.compoundTypes.size(), #unsignedLEB128); // Encode compound type count
 
     // Encode type table for compound types
     for (t in Iter.fromArray(table.compoundTypes)) {
       encodeType(buffer, t);
     };
 
-    NatX.encodeNat(buffer, table.typeCodes.size(), #unsignedLEB128); // Encode type count
+    NatX.toNatBytesBuffer(buffer, table.typeCodes.size(), #unsignedLEB128); // Encode type count
     for (code in Iter.fromArray(table.typeCodes)) {
-      IntX.encodeInt(buffer, code, #signedLEB128); // Encode each type
+      IntX.toIntBytesBuffer(buffer, code, #signedLEB128); // Encode each type
     };
   };
 
   private func encodeType(buffer : Buffer.Buffer<Nat8>, t : ShallowCompoundType<ReferenceType>) {
     let typeCode : Int = switch (t) {
-      case (#opt(o)) TypeCode.opt;
-      case (#vector(v)) TypeCode.vector;
-      case (#record(r)) TypeCode.record;
-      case (#func_(f)) TypeCode.func_;
-      case (#service(s)) TypeCode.service;
-      case (#variant(v)) TypeCode.variant;
+      case (#opt(_)) TypeCode.opt;
+      case (#vector(_)) TypeCode.vector;
+      case (#record(_)) TypeCode.record;
+      case (#func_(_)) TypeCode.func_;
+      case (#service(_)) TypeCode.service;
+      case (#variant(_)) TypeCode.variant;
     };
-    IntX.encodeInt(buffer, typeCode, #signedLEB128); // Encode compound type code
+    IntX.toIntBytesBuffer(buffer, typeCode, #signedLEB128); // Encode compound type code
     switch (t) {
       case (#opt(o)) {
-        IntX.encodeInt(buffer, o, #signedLEB128); // Encode reference index or type code
+        IntX.toIntBytesBuffer(buffer, o, #signedLEB128); // Encode reference index or type code
       };
       case (#vector(v)) {
-        IntX.encodeInt(buffer, v, #signedLEB128); // Encode reference index or type code
+        IntX.toIntBytesBuffer(buffer, v, #signedLEB128); // Encode reference index or type code
       };
       case (#record(r)) {
-        NatX.encodeNat(buffer, r.size(), #unsignedLEB128); // Encode field count
+        NatX.toNatBytesBuffer(buffer, r.size(), #unsignedLEB128); // Encode field count
         for (field in Iter.fromArray(r)) {
-          NatX.encodeNat(buffer, Nat32.toNat(Tag.hash(field.tag)), #unsignedLEB128); // Encode field tag
-          IntX.encodeInt(buffer, field.type_, #signedLEB128); // Encode reference index or type code
+          NatX.toNatBytesBuffer(buffer, Nat32.toNat(Tag.hash(field.tag)), #unsignedLEB128); // Encode field tag
+          IntX.toIntBytesBuffer(buffer, field.type_, #signedLEB128); // Encode reference index or type code
         };
       };
       case (#func_(f)) {
         let argCount = f.argTypes.size();
-        NatX.encodeNat(buffer, argCount, #unsignedLEB128); // Encode arg count
+        NatX.toNatBytesBuffer(buffer, argCount, #unsignedLEB128); // Encode arg count
 
         for (argType in Iter.fromArray(f.argTypes)) {
-          IntX.encodeInt(buffer, argType, #signedLEB128); // Encode each arg
+          IntX.toIntBytesBuffer(buffer, argType, #signedLEB128); // Encode each arg
         };
 
         let returnArgCount = f.returnTypes.size();
-        NatX.encodeNat(buffer, returnArgCount, #unsignedLEB128); // Encode return arg count
+        NatX.toNatBytesBuffer(buffer, returnArgCount, #unsignedLEB128); // Encode return arg count
 
         for (argType in Iter.fromArray(f.returnTypes)) {
-          IntX.encodeInt(buffer, argType, #signedLEB128); // Encode each return arg
+          IntX.toIntBytesBuffer(buffer, argType, #signedLEB128); // Encode each return arg
         };
 
         let modeCount = f.modes.size();
-        NatX.encodeNat(buffer, modeCount, #unsignedLEB128); // Encode mode count
+        NatX.toNatBytesBuffer(buffer, modeCount, #unsignedLEB128); // Encode mode count
 
         for (mode in Iter.fromArray(f.modes)) {
           let value : Int = switch (mode) {
             case (#query_) 1;
             case (#oneway) 2;
           };
-          IntX.encodeInt(buffer, value, #signedLEB128); // Encode each mode
+          IntX.toIntBytesBuffer(buffer, value, #signedLEB128); // Encode each mode
         };
       };
       case (#service(s)) {
-        NatX.encodeNat(buffer, s.methods.size(), #unsignedLEB128); // Encode method count
+        NatX.toNatBytesBuffer(buffer, s.methods.size(), #unsignedLEB128); // Encode method count
 
         for (method in Iter.fromArray(s.methods)) {
           encodeText(buffer, method.0); // Encode method name
-          IntX.encodeInt(buffer, method.1, #signedLEB128); // Encode method type
+          IntX.toIntBytesBuffer(buffer, method.1, #signedLEB128); // Encode method type
         };
       };
       case (#variant(v)) {
-        NatX.encodeNat(buffer, v.size(), #unsignedLEB128); // Encode option count
+        NatX.toNatBytesBuffer(buffer, v.size(), #unsignedLEB128); // Encode option count
         for (option in Iter.fromArray(v)) {
-          NatX.encodeNat(buffer, Nat32.toNat(Tag.hash(option.tag)), #unsignedLEB128); // Encode option tag
-          IntX.encodeInt(buffer, option.type_, #signedLEB128); // Encode reference index or type code
+          NatX.toNatBytesBuffer(buffer, Nat32.toNat(Tag.hash(option.tag)), #unsignedLEB128); // Encode option tag
+          IntX.toIntBytesBuffer(buffer, option.type_, #signedLEB128); // Encode reference index or type code
         };
       };
     };
@@ -195,35 +195,44 @@ module {
   };
 
   private func getTypeInfo(args : [Type.Type]) : CompoundTypeTable {
-    let shallowTypes = Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>(args.size());
-    let recursiveTypeIndexMap = TrieMap.TrieMap<Text, Nat>(Text.equal, Text.hash);
-    let uniqueTypeMap = TrieMap.TrieMap<NonRecursiveCompoundType, Nat>(Type.equal, Type.hash);
+    let shallowTypes = List.empty<ShallowCompoundType<ReferenceOrRecursiveType>>();
+    let recursiveTypeIndexMap = Map.empty<Text, Nat>();
+    let uniqueTypeMap = Map.empty<NonRecursiveCompoundType, Nat>();
 
     // Build shallow args and recursive types first, then resolve all recursive references
-    let shallowArgs = Buffer.Buffer<ReferenceOrRecursiveType>(args.size());
+    let shallowArgs = List.empty<ReferenceOrRecursiveType>();
     for (arg in Iter.fromArray(args)) {
       let t = buildShallowTypes(shallowTypes, recursiveTypeIndexMap, uniqueTypeMap, arg);
-      shallowArgs.add(t);
+      List.add(shallowArgs, t);
     };
 
-    let resolvedCompoundTypes = Buffer.Buffer<ShallowCompoundType<ReferenceType>>(shallowTypes.size());
-    let typeIndexOrCodeList = Buffer.Buffer<Int>(args.size());
-    for (sArg in shallowArgs.vals()) {
+    let resolvedCompoundTypes = Map.empty<Nat, ShallowCompoundType<ReferenceType>>();
+    let typeIndexOrCodeList = List.empty<Int>();
+    for (sArg in List.values(shallowArgs)) {
       let indexOrCode = resolveArg(sArg, shallowTypes, recursiveTypeIndexMap, resolvedCompoundTypes);
-      typeIndexOrCodeList.add(indexOrCode);
+      List.add(typeIndexOrCodeList, indexOrCode);
     };
+    let compoundTypes = Array.tabulate(
+      Map.size(resolvedCompoundTypes),
+      func(i : Nat) : ShallowCompoundType<ReferenceType> {
+        switch (Map.get(resolvedCompoundTypes, Nat.compare, i)) {
+          case (?t) t;
+          case (null) Runtime.trap("Unable to resolve type at index " # Nat.toText(i));
+        };
+      },
+    );
 
     {
-      compoundTypes = Buffer.toArray(resolvedCompoundTypes);
-      typeCodes = Buffer.toArray(typeIndexOrCodeList);
+      compoundTypes = compoundTypes;
+      typeCodes = List.toArray(typeIndexOrCodeList);
     };
   };
 
   private func resolveArg(
     arg : ReferenceOrRecursiveType,
-    shallowTypes : Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>,
-    recursiveTypeIndexMap : TrieMap.TrieMap<Text, Nat>,
-    resolvedCompoundTypes : Buffer.Buffer<ShallowCompoundType<ReferenceType>>,
+    shallowTypes : List.List<ShallowCompoundType<ReferenceOrRecursiveType>>,
+    recursiveTypeIndexMap : Map.Map<Text, Nat>,
+    resolvedCompoundTypes : Map.Map<Nat, ShallowCompoundType<ReferenceType>>,
   ) : Int {
     switch (arg) {
       case (#indexOrCode(i)) {
@@ -231,7 +240,7 @@ module {
           return i; // Primitive
         };
         let typeIndex : Nat = Int.abs(i);
-        switch (resolvedCompoundTypes.getOpt(typeIndex)) {
+        switch (Map.get(resolvedCompoundTypes, Nat.compare, typeIndex)) {
           case (?t) {
             // Already resolved
             return typeIndex;
@@ -244,7 +253,7 @@ module {
           resolveArg(t, shallowTypes, recursiveTypeIndexMap, resolvedCompoundTypes);
         };
         // Compound
-        let t : ShallowCompoundType<ReferenceType> = switch (shallowTypes.get(typeIndex)) {
+        let t : ShallowCompoundType<ReferenceType> = switch (List.get(shallowTypes, typeIndex)) {
           case (#opt(o)) {
             let innerResolution = mapArg(o);
             #opt(innerResolution);
@@ -295,13 +304,13 @@ module {
             });
           };
         };
-        let index = resolvedCompoundTypes.size();
-        resolvedCompoundTypes.insert(typeIndex, t);
-        index;
+
+        Map.add(resolvedCompoundTypes, Nat.compare, typeIndex, t);
+        typeIndex;
       };
       case (#recursiveReference(r)) {
-        switch (recursiveTypeIndexMap.get(r)) {
-          case (null) Debug.trap("Unable to find named type reference '" # r # "'");
+        switch (Map.get(recursiveTypeIndexMap, Text.compare, r)) {
+          case (null) Runtime.trap("Unable to find named type reference '" # r # "'");
           case (?i) i;
         };
       };
@@ -309,9 +318,9 @@ module {
   };
 
   private func buildShallowTypes(
-    buffer : Buffer.Buffer<ShallowCompoundType<ReferenceOrRecursiveType>>,
-    recursiveTypes : TrieMap.TrieMap<Text, Nat>,
-    uniqueTypeMap : TrieMap.TrieMap<NonRecursiveCompoundType, Nat>,
+    buffer : List.List<ShallowCompoundType<ReferenceOrRecursiveType>>,
+    recursiveTypes : Map.Map<Text, Nat>,
+    uniqueTypeMap : Map.Map<NonRecursiveCompoundType, Nat>,
     t : Type.Type,
   ) : ReferenceOrRecursiveType {
 
@@ -327,12 +336,12 @@ module {
         switch (innerReferenceType) {
           case (#indexOrCode(i)) {
             if (i < 0) {
-              Debug.trap("Recursive types can only be compound types");
+              Runtime.trap("Recursive types can only be compound types");
             };
-            recursiveTypes.put(rT.id, Int.abs(i));
+            Map.add(recursiveTypes, Text.compare, rT.id, Int.abs(i));
             return #indexOrCode(i);
           };
-          case (#recursiveReference(r)) Debug.trap("A named recursived type cannot itself be a recursive reference");
+          case (#recursiveReference(_)) Runtime.trap("A named recursived type cannot itself be a recursive reference");
         };
       };
       case (#recursiveReference(r)) {
@@ -358,7 +367,7 @@ module {
       case (#empty) return #indexOrCode(TypeCode.empty);
       case (#principal) return #indexOrCode(TypeCode.principal);
     };
-    switch (uniqueTypeMap.get(compoundType)) {
+    switch (Map.get(uniqueTypeMap, Type.compare, compoundType)) {
       case (null) {}; // No duplicate found, continue
       case (?i) return #indexOrCode(i); // Duplicate type, return index
     };
@@ -400,12 +409,12 @@ module {
       };
       case (#func_(fn)) {
         let funcTypesToReference = func(types : [Type.Type]) : [ReferenceOrRecursiveType] {
-          let refTypeBuffer = Buffer.Buffer<ReferenceOrRecursiveType>(types.size());
+          let refTypeBuffer = List.empty<ReferenceOrRecursiveType>();
           for (t in Iter.fromArray(types)) {
             let refType : ReferenceOrRecursiveType = buildShallowTypes(buffer, recursiveTypes, uniqueTypeMap, t);
-            refTypeBuffer.add(refType);
+            List.add(refTypeBuffer, refType);
           };
-          Buffer.toArray(refTypeBuffer);
+          List.toArray(refTypeBuffer);
         };
         let argTypes : [ReferenceOrRecursiveType] = funcTypesToReference(fn.argTypes);
         let returnTypes : [ReferenceOrRecursiveType] = funcTypesToReference(fn.returnTypes);
@@ -428,9 +437,9 @@ module {
         });
       };
     };
-    let index = buffer.size();
-    uniqueTypeMap.put(compoundType, index);
-    buffer.add(rT);
+    let index = List.size(buffer);
+    Map.add(uniqueTypeMap, Type.compare, compoundType, index);
+    List.add(buffer, rT);
     #indexOrCode(index);
   };
 
@@ -445,25 +454,25 @@ module {
   private func encodeValue(buffer : Buffer.Buffer<Nat8>, value : Value.Value, t : ReferenceType, types : [ShallowCompoundType<ReferenceType>]) {
     if (t < 0) {
       return switch (value) {
-        case (#int(i)) IntX.encodeInt(buffer, i, #signedLEB128);
-        case (#int8(i8)) IntX.encodeInt8(buffer, i8);
-        case (#int16(i16)) IntX.encodeInt16(buffer, i16, #lsb);
-        case (#int32(i32)) IntX.encodeInt32(buffer, i32, #lsb);
-        case (#int64(i64)) IntX.encodeInt64(buffer, i64, #lsb);
-        case (#nat(n)) NatX.encodeNat(buffer, n, #unsignedLEB128);
-        case (#nat8(n8)) NatX.encodeNat8(buffer, n8);
-        case (#nat16(n16)) NatX.encodeNat16(buffer, n16, #lsb);
-        case (#nat32(n32)) NatX.encodeNat32(buffer, n32, #lsb);
-        case (#nat64(n64)) NatX.encodeNat64(buffer, n64, #lsb);
+        case (#int(i)) IntX.toIntBytesBuffer(buffer, i, #signedLEB128);
+        case (#int8(i8)) IntX.toInt8BytesBuffer(buffer, i8);
+        case (#int16(i16)) IntX.toInt16BytesBuffer(buffer, i16, #lsb);
+        case (#int32(i32)) IntX.toInt32BytesBuffer(buffer, i32, #lsb);
+        case (#int64(i64)) IntX.toInt64BytesBuffer(buffer, i64, #lsb);
+        case (#nat(n)) NatX.toNatBytesBuffer(buffer, n, #unsignedLEB128);
+        case (#nat8(n8)) NatX.toNat8BytesBuffer(buffer, n8);
+        case (#nat16(n16)) NatX.toNat16BytesBuffer(buffer, n16, #lsb);
+        case (#nat32(n32)) NatX.toNat32BytesBuffer(buffer, n32, #lsb);
+        case (#nat64(n64)) NatX.toNat64BytesBuffer(buffer, n64, #lsb);
         case (#null_) {}; // Nothing to encode
-        case (#bool(b)) buffer.add(if (b) 0x01 else 0x00);
+        case (#bool(b)) buffer.write(if (b) 0x01 else 0x00);
         case (#float32(f)) {
           let floatX : FloatX.FloatX = FloatX.fromFloat(f, #f32);
-          FloatX.encode(buffer, floatX, #lsb);
+          FloatX.toBytesBuffer(buffer, floatX, #lsb);
         };
         case (#float64(f)) {
           let floatX : FloatX.FloatX = FloatX.fromFloat(f, #f64);
-          FloatX.encode(buffer, floatX, #lsb);
+          FloatX.toBytesBuffer(buffer, floatX, #lsb);
         };
         case (#text(t)) {
           encodeText(buffer, t);
@@ -471,7 +480,7 @@ module {
         case (#reserved) {}; // Nothing to encode
         case (#empty) {}; // Nothing to encode
         case (#principal(p)) encodeTransparencyState<Principal>(buffer, p, encodePrincipal);
-        case (_) Debug.trap("Invalid type definition. Doesn't match value");
+        case (_) Runtime.trap("Invalid type definition. Doesn't match value");
       };
     };
 
@@ -480,12 +489,12 @@ module {
     switch (value) {
       case (#opt(o)) {
         switch (o) {
-          case (#null_) buffer.add(0x00); // Indicate there is no value
+          case (#null_) buffer.write(0x00); // Indicate there is no value
           case (v) {
-            buffer.add(0x01); // Indicate there is a value
+            buffer.write(0x01); // Indicate there is a value
             let innerType : ReferenceType = switch (types[i]) {
               case (#opt(inner)) inner;
-              case (_) Debug.trap("Invalid type definition. Doesn't match value");
+              case (_) Runtime.trap("Invalid type definition. Doesn't match value");
             };
             encodeValue(buffer, v, innerType, types); // Encode value
           };
@@ -494,28 +503,28 @@ module {
       case (#vector(ve)) {
         let innerType : ReferenceType = switch (types[i]) {
           case (#vector(inner)) inner;
-          case (_) Debug.trap("Invalid type definition. Doesn't match value");
+          case (_) Runtime.trap("Invalid type definition. Doesn't match value");
         };
-        NatX.encodeNat(buffer, ve.size(), #unsignedLEB128); // Encode the length of the vector
+        NatX.toNatBytesBuffer(buffer, ve.size(), #unsignedLEB128); // Encode the length of the vector
         for (v in Iter.fromArray(ve)) {
           encodeValue(buffer, v, innerType, types); // Encode each value
         };
       };
       case (#record(r)) {
-        let innerTypes : TrieMap.TrieMap<Tag, ReferenceType> = switch (types[i]) {
+        let innerTypes : Map.Map<Tag, ReferenceType> = switch (types[i]) {
           case (#record(inner)) {
             let innerKV = Iter.fromArray(Array.map<RecordFieldReferenceType<ReferenceType>, (Tag, ReferenceType)>(inner, func(i) { (i.tag, i.type_) }));
-            TrieMap.fromEntries<Tag, ReferenceType>(innerKV, Tag.equal, Tag.hash);
+            Map.fromIter<Tag, ReferenceType>(innerKV, Tag.compare);
           };
-          case (_) Debug.trap("Invalid type definition. Doesn't match value");
+          case (_) Runtime.trap("Invalid type definition. Doesn't match value");
         };
         // Sort properties by the hash of the
         let sortedKVs : [RecordFieldValue] = Array.sort<RecordFieldValue>(r, InternalTypes.tagObjCompare);
 
         for (kv in Iter.fromArray(sortedKVs)) {
-          let innerType = switch (innerTypes.get(kv.tag)) {
+          let innerType = switch (Map.get(innerTypes, Tag.compare, kv.tag)) {
             case (?t) t;
-            case (_) Debug.trap("Invalid type definition. Doesn't match value");
+            case (_) Runtime.trap("Invalid type definition. Doesn't match value");
           };
           encodeValue(buffer, kv.value, innerType, types); // Encode each value in order
         };
@@ -527,7 +536,7 @@ module {
           func(b, f) {
             let _ : InternalTypes.FuncReferenceType<ReferenceType> = switch (types[i]) {
               case (#func_(inner)) inner;
-              case (_) Debug.trap("Invalid type definition. Doesn't match value");
+              case (_) Runtime.trap("Invalid type definition. Doesn't match value");
             };
             encodeValue(buffer, #principal(f.service), TypeCode.principal, types); // Encode the service
             encodeValue(buffer, #text(f.method), TypeCode.text, types); // Encode the method
@@ -538,18 +547,18 @@ module {
       case (#variant(v)) {
         let innerTypes : [InternalTypes.VariantOptionReferenceType<ReferenceType>] = switch (types[i]) {
           case (#variant(inner)) inner;
-          case (_) Debug.trap("Invalid type definition. Doesn't match value");
+          case (_) Runtime.trap("Invalid type definition. Doesn't match value");
         };
         var typeIndex : ?Nat = firstIndexOf<InternalTypes.VariantOptionReferenceType<ReferenceType>>(innerTypes, func(t) { Tag.equal(t.tag, v.tag) });
         switch (typeIndex) {
           case (?i) {
-            NatX.encodeNat(buffer, i, #unsignedLEB128); // Encode tag value
+            NatX.toNatBytesBuffer(buffer, i, #unsignedLEB128); // Encode tag value
             encodeValue(buffer, v.value, innerTypes[i].type_, types); // Encode value
           };
-          case (null) Debug.trap("Invalid type definition. Doesn't match value");
+          case (null) Runtime.trap("Invalid type definition. Doesn't match value");
         };
       };
-      case (_) Debug.trap("Invalid type definition. Doesn't match value");
+      case (_) Runtime.trap("Invalid type definition. Doesn't match value");
     };
   };
 
@@ -559,15 +568,15 @@ module {
     encodeInner : (Buffer.Buffer<Nat8>, T) -> (),
   ) {
     // TODO opaque, how to handle?
-    buffer.add(0x01); // 1 if transparent
+    buffer.write(0x01); // 1 if transparent
     encodeInner(buffer, r);
   };
 
   private func encodePrincipal(buffer : Buffer.Buffer<Nat8>, p : Principal) {
     let bytes : [Nat8] = Blob.toArray(Principal.toBlob(p));
-    NatX.encodeNat(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
+    NatX.toNatBytesBuffer(buffer, bytes.size(), #unsignedLEB128); // Encode the byte length
     for (b in Iter.fromArray(bytes)) {
-      buffer.add(b); // Encode the raw principal bytes
+      buffer.write(b); // Encode the raw principal bytes
     };
   };
 
@@ -584,9 +593,9 @@ module {
 
   private func encodeText(buffer : Buffer.Buffer<Nat8>, t : Text) {
     let utf8Bytes : Blob = Text.encodeUtf8(t);
-    NatX.encodeNat(buffer, utf8Bytes.size(), #unsignedLEB128);
+    NatX.toNatBytesBuffer(buffer, utf8Bytes.size(), #unsignedLEB128);
     for (byte in utf8Bytes.vals()) {
-      buffer.add(byte);
+      buffer.write(byte);
     };
   };
 };

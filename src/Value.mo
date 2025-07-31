@@ -1,22 +1,22 @@
 import FloatX "mo:xtended-numbers/FloatX";
 import InternalTypes "InternalTypes";
-import Iter "mo:base/Iter";
-import Order "mo:base/Order";
+import Iter "mo:core/Iter";
+import Order "mo:core/Order";
 import Tag "./Tag";
-import Bool "mo:base/Bool";
-import Float "mo:base/Float";
-import Principal "mo:base/Principal";
-import Nat8 "mo:base/Nat8";
-import Nat "mo:base/Nat";
-import Nat16 "mo:base/Nat16";
-import Nat64 "mo:base/Nat64";
-import Nat32 "mo:base/Nat32";
-import Int64 "mo:base/Int64";
-import Int32 "mo:base/Int32";
-import Int16 "mo:base/Int16";
-import Int "mo:base/Int";
-import Int8 "mo:base/Int8";
-import Text "mo:base/Text";
+import Bool "mo:core/Bool";
+import Float "mo:core/Float";
+import Principal "mo:core/Principal";
+import Nat8 "mo:core/Nat8";
+import Nat "mo:core/Nat";
+import Nat16 "mo:core/Nat16";
+import Nat64 "mo:core/Nat64";
+import Nat32 "mo:core/Nat32";
+import Int64 "mo:core/Int64";
+import Int32 "mo:core/Int32";
+import Int16 "mo:core/Int16";
+import Int "mo:core/Int";
+import Int8 "mo:core/Int8";
+import Text "mo:core/Text";
 
 module {
   type Tag = Tag.Tag;
@@ -69,96 +69,130 @@ module {
   };
 
   public func equal(v1 : Value, v2 : Value) : Bool {
-    switch (v1) {
-      case (#float32(f1)) {
-        let f2 = switch (v2) {
-          case (#float32(f2)) f2;
-          case (#float64(f2)) f2;
-          case (_) return false;
+    compare(v1, v2) == #equal;
+  };
+
+  public func compare(v1 : Value, v2 : Value) : Order.Order {
+    switch (v1, v2) {
+      case (#float32(f1), #float32(f2)) {
+        if (FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001)) {
+          #equal;
+        } else {
+          Float.compare(f1, f2);
         };
-        FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001);
       };
-      case (#float64(f1)) {
-        let f2 = switch (v2) {
-          case (#float32(f2)) f2;
-          case (#float64(f2)) f2;
-          case (_) return false;
+      case (#float32(f1), #float64(f2)) {
+        if (FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001)) {
+          #equal;
+        } else {
+          Float.compare(f1, f2);
         };
-        FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001);
       };
-      case (#opt(o1)) {
-        let o2 = switch (v2) {
-          case (#opt(o2)) o2;
-          case (_) return false;
+      case (#float64(f1), #float32(f2)) {
+        if (FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001)) {
+          #equal;
+        } else {
+          Float.compare(f1, f2);
         };
-        equal(o1, o2);
       };
-      case (#vector(ve1)) {
-        let ve2 = switch (v2) {
-          case (#vector(ve)) ve;
-          case (_) return false;
+      case (#float64(f1), #float64(f2)) {
+        if (FloatX.nearlyEqual(f1, f2, 0.0000001, 0.000001)) {
+          #equal;
+        } else {
+          Float.compare(f1, f2);
         };
-        InternalTypes.arraysAreEqual(
+      };
+      case (#opt(o1), #opt(o2)) {
+        compare(o1, o2);
+      };
+      case (#vector(ve1), #vector(ve2)) {
+        InternalTypes.compareArrays(
           ve1,
           ve2,
-          null, // Dont reorder
-          equal,
+          func(v1 : Value, v2 : Value, _ : Bool) : Order.Order {
+            compare(v1, v2);
+          },
+          false, // Do not reorder vector elements as order matters
         );
       };
-      case (#record(r1)) {
-        let r2 = switch (v2) {
-          case (#record(r2)) r2;
-          case (_) return false;
-        };
-
-        InternalTypes.arraysAreEqual(
+      case (#record(r1), #record(r2)) {
+        InternalTypes.compareArrays(
           r1,
           r2,
-          ?(
-            func(t1 : RecordFieldValue, t2 : RecordFieldValue) : Order.Order {
-              Tag.compare(t1.tag, t2.tag);
-            }
-          ),
-          func(t1 : RecordFieldValue, t2 : RecordFieldValue) : Bool {
-            if (not Tag.equal(t1.tag, t2.tag)) {
-              return false;
+          func(t1 : RecordFieldValue, t2 : RecordFieldValue, shallow : Bool) : Order.Order {
+            switch (Tag.compare(t1.tag, t2.tag)) {
+              case (#equal) if (shallow) #equal else compare(t1.value, t2.value);
+              case (order) order;
             };
-            equal(t1.value, t2.value);
           },
+          true, // Reorder for consistent comparison
         );
       };
-      case (#variant(va1)) {
-        let va2 = switch (v2) {
-          case (#variant(va2)) va2;
-          case (_) return false;
-        };
-        if (not Tag.equal(va1.tag, va2.tag)) {
-          return false;
-        };
-        if (not equal(va1.value, va2.value)) {
-          return false;
-        };
-        true;
-      };
-      case (#func_(f1)) {
-        let f2 = switch (v2) {
-          case (#func_(f2)) f2;
-          case (_) return false;
-        };
-        if (f1.method != f2.method) {
-          false;
-        } else {
-          f1.service == f2.service;
+      case (#variant(va1), #variant(va2)) {
+        switch (Tag.compare(va1.tag, va2.tag)) {
+          case (#equal) compare(va1.value, va2.value);
+          case (order) order;
         };
       };
-      case (#service(s1)) {
-        let s2 = switch (v2) {
-          case (#service(s2)) s2;
-          case (_) return false;
+      case (#func_(f1), #func_(f2)) {
+        switch (Text.compare(f1.method, f2.method)) {
+          case (#equal) Principal.compare(f1.service, f2.service);
+          case (order) order;
         };
-        s1 == s2;
       };
-      case (a) a == v2;
+      case (#service(s1), #service(s2)) {
+        Principal.compare(s1, s2);
+      };
+      case (#int(n1), #int(n2)) Int.compare(n1, n2);
+      case (#int8(n1), #int8(n2)) Int8.compare(n1, n2);
+      case (#int16(n1), #int16(n2)) Int16.compare(n1, n2);
+      case (#int32(n1), #int32(n2)) Int32.compare(n1, n2);
+      case (#int64(n1), #int64(n2)) Int64.compare(n1, n2);
+      case (#nat(n1), #nat(n2)) Nat.compare(n1, n2);
+      case (#nat8(n1), #nat8(n2)) Nat8.compare(n1, n2);
+      case (#nat16(n1), #nat16(n2)) Nat16.compare(n1, n2);
+      case (#nat32(n1), #nat32(n2)) Nat32.compare(n1, n2);
+      case (#nat64(n1), #nat64(n2)) Nat64.compare(n1, n2);
+      case (#bool(b1), #bool(b2)) Bool.compare(b1, b2);
+      case (#text(t1), #text(t2)) Text.compare(t1, t2);
+      case (#principal(p1), #principal(p2)) Principal.compare(p1, p2);
+      case (#null_, #null_) #equal;
+      case (#reserved, #reserved) #equal;
+      case (#empty, #empty) #equal;
+      case (a, b) {
+        // For different variant types, use a consistent ordering based on the variant tag
+        let getVariantOrder = func(v : Value) : Nat {
+          switch (v) {
+            case (#null_) 0;
+            case (#bool(_)) 1;
+            case (#nat(_)) 2;
+            case (#nat8(_)) 3;
+            case (#nat16(_)) 4;
+            case (#nat32(_)) 5;
+            case (#nat64(_)) 6;
+            case (#int(_)) 7;
+            case (#int8(_)) 8;
+            case (#int16(_)) 9;
+            case (#int32(_)) 10;
+            case (#int64(_)) 11;
+            case (#float32(_)) 12;
+            case (#float64(_)) 13;
+            case (#text(_)) 14;
+            case (#reserved) 15;
+            case (#empty) 16;
+            case (#principal(_)) 17;
+            case (#opt(_)) 18;
+            case (#vector(_)) 19;
+            case (#record(_)) 20;
+            case (#variant(_)) 21;
+            case (#func_(_)) 22;
+            case (#service(_)) 23;
+          };
+        };
+        let orderA = getVariantOrder(a);
+        let orderB = getVariantOrder(b);
+        Nat.compare(orderA, orderB);
+      };
     };
   };
 
@@ -338,9 +372,9 @@ module {
       // If indented, always do new line and X tabs depending on depth
       var indentation = "\n";
       if (depth > 0) {
-        Iter.iterate<Nat>(
-          Iter.range(1, depth),
-          func(i) {
+        Iter.forEach<Nat>(
+          Nat.range(1, depth + 1),
+          func(i : Nat) : () {
             // Add an extra tab per depth
             indentation #= "\t";
           },

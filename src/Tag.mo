@@ -1,8 +1,8 @@
-import Order "mo:base/Order";
-import Array "mo:base/Array";
-import Blob "mo:base/Blob";
-import Text "mo:base/Text";
-import Nat32 "mo:base/Nat32";
+import Order "mo:core/Order";
+import Array "mo:core/Array";
+import Blob "mo:core/Blob";
+import Text "mo:core/Text";
+import Nat32 "mo:core/Nat32";
 import NatX "mo:xtended-numbers/NatX";
 
 module {

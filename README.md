@@ -24,13 +24,15 @@ To setup MOPS package manage, follow the instructions from the [MOPS Site](https
 
 # Usage
 
-## Decode 
+## Decode
+
 ```
 let encodedArgs : Blob = ...;
-let ?args: ?[Arg.Arg] = Decoder.decode(encodedArgs) else Debug.trap("Invalid candid");
+let ?args: ?[Arg.Arg] = Decoder.decode(encodedArgs) else Runtime.trap("Invalid candid");
 ```
 
 ## Encode
+
 ```
 let returnArgs: [Arg.Arg] = [
     {
@@ -83,7 +85,7 @@ Compares order between two tags
 
 Checks for equality between two types
 
-`hash(t : Type) : Hash.Hash`
+`hash(t : Type) : Nat32`
 
 Hashes a type to a Nat32
 

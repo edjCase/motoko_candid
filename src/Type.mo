@@ -1,16 +1,15 @@
-import Array "mo:base/Array";
+import Array "mo:core/Array";
 import FuncMode "./FuncMode";
-import Hash "mo:base/Hash";
-import Int "mo:base/Int";
-import Nat32 "mo:base/Nat32";
-import InternalTypes "./InternalTypes";
-import Iter "mo:base/Iter";
-import Nat "mo:base/Nat";
-import Order "mo:base/Order";
+import Int "mo:core/Int";
+import Nat32 "mo:core/Nat32";
+import Iter "mo:core/Iter";
+import Nat "mo:core/Nat";
+import Order "mo:core/Order";
 import Tag "./Tag";
-import Text "mo:base/Text";
+import Text "mo:core/Text";
+import Char "mo:core/Char";
 import TypeCode "./TypeCode";
-import Util "InternalTypes";
+import InternalTypes "InternalTypes";
 
 module {
   public type FuncType = {
@@ -83,149 +82,126 @@ module {
   /// // areEqual is true
   /// ```
   public func equal(v1 : Type, v2 : Type) : Bool {
-    switch (v1) {
-      case (#opt(o1)) {
-        let o2 = switch (v2) {
-          case (#opt(o2)) o2;
-          case (_) return false;
-        };
-        equal(o1, o2);
-      };
-      case (#vector(ve1)) {
-        let ve2 = switch (v2) {
-          case (#vector(ve)) ve;
-          case (_) return false;
-        };
-        equal(ve1, ve2);
-      };
-      case (#record(r1)) {
-        let r2 = switch (v2) {
-          case (#record(r2)) r2;
-          case (_) return false;
-        };
+    compare(v1, v2) == #equal;
+  };
 
-        InternalTypes.arraysAreEqual(
+  /// Compares two Type values and returns an Order.Order value.
+  /// Returns #equal if the types are equal, #less if v1 is less than v2, and #greater if v1 is greater than v2.
+  /// ```motoko
+  /// let type1 : Type = #opt(#nat);
+  /// let type2 : Type = #opt(#nat);
+  /// let order = Type.compare(type1, type2);
+  /// // order is #equal
+  /// ```
+  public func compare(v1 : Type, v2 : Type) : Order.Order {
+    switch (v1, v2) {
+      case (#opt(o1), #opt(o2)) {
+        compare(o1, o2);
+      };
+      case (#vector(ve1), #vector(ve2)) {
+        compare(ve1, ve2);
+      };
+      case (#record(r1), #record(r2)) {
+        InternalTypes.compareArrays(
           r1,
           r2,
-          ?(
-            func(t1 : RecordFieldType, t2 : RecordFieldType) : Order.Order {
-              Tag.compare(t1.tag, t2.tag);
-            }
-          ),
-          func(t1 : RecordFieldType, t2 : RecordFieldType) : Bool {
-            if (not Tag.equal(t1.tag, t2.tag)) {
-              return false;
+          func(t1 : RecordFieldType, t2 : RecordFieldType, shallow : Bool) : Order.Order {
+            switch (Tag.compare(t1.tag, t2.tag)) {
+              case (#equal) if (shallow) #equal else compare(t1.type_, t2.type_);
+              case (order) order;
             };
-            equal(t1.type_, t2.type_);
           },
+          true, // Reorder for consistent comparison
         );
       };
-      case (#variant(va1)) {
-        let va2 = switch (v2) {
-          case (#variant(va2)) va2;
-          case (_) return false;
-        };
-        InternalTypes.arraysAreEqual(
+      case (#variant(va1), #variant(va2)) {
+        InternalTypes.compareArrays(
           va1,
           va2,
-          ?(
-            func(t1 : VariantOptionType, t2 : VariantOptionType) : Order.Order {
-              Tag.compare(t1.tag, t2.tag);
-            }
-          ),
-          func(t1 : VariantOptionType, t2 : VariantOptionType) : Bool {
-            if (not Tag.equal(t1.tag, t2.tag)) {
-              return false;
+          func(t1 : VariantOptionType, t2 : VariantOptionType, shallow : Bool) : Order.Order {
+            switch (Tag.compare(t1.tag, t2.tag)) {
+              case (#equal) if (shallow) #equal else compare(t1.type_, t2.type_);
+              case (order) order;
             };
-            equal(t1.type_, t2.type_);
           },
+          true, // Reorder for consistent comparison
         );
       };
-      case (#func_(f1)) {
-        let f2 = switch (v2) {
-          case (#func_(f2)) f2;
-          case (_) return false;
-        };
-
-        // Mode Types
+      case (#func_(f1), #func_(f2)) {
+        // Compare modes first
         let getModeValue = func(m : FuncMode.FuncMode) : Nat {
           switch (m) {
-            case (#oneway) 2;
             case (#query_) 1;
+            case (#oneway) 2;
           };
         };
-        let modesAreEqual = InternalTypes.arraysAreEqual(
+        let modesCompare = InternalTypes.compareArrays(
           f1.modes,
           f2.modes,
-          ?(
-            func(m1 : FuncMode.FuncMode, m2 : FuncMode.FuncMode) : Order.Order {
-              let mv1 : Nat = getModeValue(m1);
-              let mv2 : Nat = getModeValue(m2);
-              Nat.compare(mv1, mv2);
-            }
-          ),
-          func(m1 : FuncMode.FuncMode, m2 : FuncMode.FuncMode) : Bool {
-            m1 == m2;
+          func(m1 : FuncMode.FuncMode, m2 : FuncMode.FuncMode, _ : Bool) : Order.Order {
+            let mv1 : Nat = getModeValue(m1);
+            let mv2 : Nat = getModeValue(m2);
+            Nat.compare(mv1, mv2);
           },
+          true, // Reorder for consistent comparison
         );
-        if (not modesAreEqual) {
-          return false;
+        switch (modesCompare) {
+          case (#equal) {
+            // Compare arg types
+            let argTypesCompare = InternalTypes.compareArrays(
+              f1.argTypes,
+              f2.argTypes,
+              func(t1 : Type, t2 : Type, _ : Bool) : Order.Order {
+                compare(t1, t2);
+              },
+              false, // Do not reorder arg types for comparison because order matters
+            );
+            switch (argTypesCompare) {
+              case (#equal) {
+                // Compare return types
+                InternalTypes.compareArrays(
+                  f1.returnTypes,
+                  f2.returnTypes,
+                  func(t1 : Type, t2 : Type, _ : Bool) : Order.Order {
+                    compare(t1, t2);
+                  },
+                  false, // Do not reorder return types for comparison because order matters
+                );
+              };
+              case (order) order;
+            };
+          };
+          case (order) order;
         };
-        // Arg Types
-        let argTypesAreEqual = InternalTypes.arraysAreEqual(
-          f1.argTypes,
-          f2.argTypes,
-          null, // Dont reorder
-          equal,
-        );
-        if (not argTypesAreEqual) {
-          return false;
-        };
-        // Return types
-        InternalTypes.arraysAreEqual(
-          f1.returnTypes,
-          f2.returnTypes,
-          null, // Dont reorder
-          equal,
-        );
       };
-      case (#service(s1)) {
-        let s2 = switch (v2) {
-          case (#service(s2)) s2;
-          case (_) return false;
-        };
-        Util.arraysAreEqual(
+      case (#service(s1), #service(s2)) {
+        InternalTypes.compareArrays(
           s1.methods,
           s2.methods,
-          ?(
-            func(t1 : (Text, FuncType), t2 : (Text, FuncType)) : Order.Order {
-              Text.compare(t1.0, t2.0);
-            }
-          ),
-          func(t1 : (Text, FuncType), t2 : (Text, FuncType)) : Bool {
-            if (t1.0 != t1.0) {
-              false;
-            } else {
-              equal(#func_(t1.1), #func_(t2.1));
+          func(t1 : (Text, FuncType), t2 : (Text, FuncType), shallow : Bool) : Order.Order {
+            switch (Text.compare(t1.0, t2.0)) {
+              case (#equal) if (shallow) #equal else compare(#func_(t1.1), #func_(t2.1));
+              case (order) order;
             };
           },
+          true,
         );
       };
-      case (#recursiveType(r1)) {
-        let r2 = switch (v2) {
-          case (#recursiveType(r2)) r2;
-          case (_) return false;
+      case (#recursiveType(r1), #recursiveType(r2)) {
+        switch (Text.compare(r1.id, r2.id)) {
+          case (#equal) compare(r1.type_, r2.type_);
+          case (order) order;
         };
-        equal(r1.type_, r2.type_);
       };
-      case (#recursiveReference(r1)) {
-        let _ = switch (v2) {
-          case (#recursiveReference(r2)) r2;
-          case (_) return false;
-        };
-        true;
+      case (#recursiveReference(r1), #recursiveReference(r2)) {
+        Text.compare(r1, r2);
       };
-      case (a) a == v2;
+      case (a, b) {
+        // For primitive types and different variant types, use hash-based ordering
+        let h1 = hash(a);
+        let h2 = hash(b);
+        Nat32.compare(h1, h2);
+      };
     };
   };
 
@@ -471,9 +447,9 @@ module {
       // If indented, always do new line and X tabs depending on depth
       var indentation = "\n";
       if (depth > 0) {
-        Iter.iterate<Nat>(
-          Iter.range(1, depth),
-          func(i) {
+        Iter.forEach<Nat>(
+          Nat.range(1, depth + 1),
+          func(i : Nat) : () {
             // Add an extra tab per depth
             indentation #= "\t";
           },
@@ -488,7 +464,7 @@ module {
     };
   };
 
-  public func hash(t : Type) : Hash.Hash {
+  public func hash(t : Type) : Nat32 {
     switch (t) {
       case (#opt(o)) {
         let h = hashTypeCode(TypeCode.opt);
@@ -502,10 +478,10 @@ module {
       };
       case (#record(r)) {
         let h = hashTypeCode(TypeCode.record);
-        Array.foldLeft<RecordFieldType, Hash.Hash>(
+        Array.foldLeft<RecordFieldType, Nat32>(
           r,
           h,
-          func(v : Hash.Hash, f : RecordFieldType) : Hash.Hash {
+          func(v : Nat32, f : RecordFieldType) : Nat32 {
             let innerHash = hash(f.type_);
             combineHash(combineHash(v, Tag.hash(f.tag)), innerHash);
           },
@@ -513,24 +489,24 @@ module {
       };
       case (#func_(f)) {
         let h = hashTypeCode(TypeCode.func_);
-        let h2 = Array.foldLeft<Type, Hash.Hash>(
+        let h2 = Array.foldLeft<Type, Nat32>(
           f.argTypes,
           h,
-          func(v : Hash.Hash, f : Type) : Hash.Hash {
+          func(v : Nat32, f : Type) : Nat32 {
             combineHash(v, hash(f));
           },
         );
-        let h3 = Array.foldLeft<Type, Hash.Hash>(
+        let h3 = Array.foldLeft<Type, Nat32>(
           f.returnTypes,
           h2,
-          func(v : Hash.Hash, f : Type) : Hash.Hash {
+          func(v : Nat32, f : Type) : Nat32 {
             combineHash(v, hash(f));
           },
         );
-        Array.foldLeft<FuncMode.FuncMode, Hash.Hash>(
+        Array.foldLeft<FuncMode.FuncMode, Nat32>(
           f.modes,
           h3,
-          func(v : Hash.Hash, f : FuncMode.FuncMode) : Hash.Hash {
+          func(v : Nat32, f : FuncMode.FuncMode) : Nat32 {
             combineHash(
               v,
               switch (f) {
@@ -543,20 +519,20 @@ module {
       };
       case (#service(s)) {
         let h = hashTypeCode(TypeCode.service);
-        Array.foldLeft<(Text, FuncType), Hash.Hash>(
+        Array.foldLeft<(Text, FuncType), Nat32>(
           s.methods,
           h,
-          func(v : Hash.Hash, f : (Text, FuncType)) : Hash.Hash {
-            combineHash(h, combineHash(Text.hash(f.0), hash(#func_(f.1))));
+          func(v : Nat32, f : (Text, FuncType)) : Nat32 {
+            combineHash(h, combineHash(hashText(f.0), hash(#func_(f.1))));
           },
         );
       };
       case (#variant(v)) {
         var h = hashTypeCode(TypeCode.variant);
-        Array.foldLeft<VariantOptionType, Hash.Hash>(
+        Array.foldLeft<VariantOptionType, Nat32>(
           v,
           0,
-          func(h : Hash.Hash, o : VariantOptionType) : Hash.Hash {
+          func(h : Nat32, o : VariantOptionType) : Nat32 {
             let innerHash = hash(o.type_);
             combineHash(combineHash(h, Tag.hash(o.tag)), innerHash);
           },
@@ -566,7 +542,7 @@ module {
         hash(rT.type_);
       };
       case (#recursiveReference(r)) {
-        Text.hash(r);
+        hashText(r);
       };
       case (#int) hashTypeCode(TypeCode.int);
       case (#int8) hashTypeCode(TypeCode.int8);
@@ -589,13 +565,22 @@ module {
     };
   };
 
-  private func hashTypeCode(i : Int) : Hash.Hash {
+  private func hashTypeCode(i : Int) : Nat32 {
     Nat32.fromNat(Int.abs(i));
   };
 
-  private func combineHash(seed : Hash.Hash, value : Hash.Hash) : Hash.Hash {
+  private func combineHash(seed : Nat32, value : Nat32) : Nat32 {
     // From `C++ Boost Hash Combine`
     seed ^ (value +% 0x9e3779b9 +% (seed << 6) +% (seed >> 2));
+  };
+
+  public func hashText(t : Text) : Nat32 {
+    var x : Nat32 = 5381;
+    for (char in t.chars()) {
+      let c : Nat32 = Char.toNat32(char);
+      x := ((x << 5) +% x) +% c;
+    };
+    return x;
   };
 
 };

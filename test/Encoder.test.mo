@@ -1,19 +1,17 @@
-import Array "mo:base/Array";
-import Blob "mo:base/Blob";
-import Char "mo:base/Char";
-import Debug "mo:base/Debug";
+import Array "mo:core/Array";
+import Blob "mo:core/Blob";
+import Char "mo:core/Char";
 import Decoder "../src/Decoder";
 import Encoder "../src/Encoder";
-import Iter "mo:base/Iter";
-import Bool "mo:base/Bool";
-import Nat "mo:base/Nat";
-import Float "mo:base/Float";
-import Nat8 "mo:base/Nat8";
-import Principal "mo:base/Principal";
+import Bool "mo:core/Bool";
+import Nat "mo:core/Nat";
+import Nat8 "mo:core/Nat8";
+import Principal "mo:core/Principal";
 import Type "../src/Type";
 import Value "../src/Value";
 import Arg "../src/Arg";
 import { test } "mo:test";
+import Runtime "mo:core/Runtime";
 
 let base : Nat8 = 0x10;
 
@@ -48,7 +46,7 @@ func areEqual(b1 : [Nat8], b2 : [Nat8]) : Bool {
   if (b1.size() != b2.size()) {
     return false;
   };
-  for (i in Iter.range(0, b1.size() - 1)) {
+  for (i in Nat.range(0, b1.size())) {
     if (b1[i] != b2[i]) {
       return false;
     };
@@ -74,25 +72,25 @@ func testCase(bytes : [Nat8], t : Type.Type, arg : Value.Value) {
   test(
     "Encoder test for type: " # debug_show (t) # " and value: " # debug_show (arg),
     func() {
-      let actualBytes : [Nat8] = Blob.toArray(Encoder.encode([{ value = arg; type_ = t }]));
+      let actualBytes : [Nat8] = Encoder.toBytes([{ value = arg; type_ = t }]);
       if (not areEqual(bytes, actualBytes)) {
-        Debug.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show (arg));
+        Runtime.trap("Failed Byte Check.\nExpected Bytes: " # toHexString(bytes) # "\nActual Bytes:   " # toHexString(actualBytes) # "\nValue: " # debug_show (arg));
       };
-      let args : ?[Arg.Arg] = Decoder.decode(Blob.fromArray(bytes));
+      let args : ?[Arg.Arg] = Decoder.fromBytes(bytes.vals());
       switch (args) {
         case (null) {
-          Debug.trap("Failed decoding.\nExpected Type: " # debug_show (t) # "\nExpected Value: " # debug_show (arg) # "\nBytes: " # toHexString(bytes));
+          Runtime.trap("Failed decoding.\nExpected Type: " # debug_show (t) # "\nExpected Value: " # debug_show (arg) # "\nBytes: " # toHexString(bytes));
         };
         case (?args) {
           if (args.size() != 1) {
-            Debug.trap("Too many args: " # Nat.toText(args.size()));
+            Runtime.trap("Too many args: " # Nat.toText(args.size()));
           };
           let actualArg : Arg.Arg = args[0];
           if (not Type.equal(t, actualArg.type_)) {
-            Debug.trap("Failed Type Check.\nExpected Type: " # debug_show (t) # "\nActual Type: " # debug_show (actualArg.type_));
+            Runtime.trap("Failed Type Check.\nExpected Type: " # debug_show (t) # "\nActual Type: " # debug_show (actualArg.type_));
           };
           if (not Value.equal(arg, actualArg.value)) {
-            Debug.trap("Failed Value Check.\nExpected Value: " # debug_show (arg) # "\nActual Value: " # debug_show (actualArg.value));
+            Runtime.trap("Failed Value Check.\nExpected Value: " # debug_show (arg) # "\nActual Value: " # debug_show (actualArg.value));
           };
         };
       };
@@ -198,11 +196,23 @@ testCase([0x44, 0x49, 0x44, 0x4C, 0x02, 0x6E, 0x7C, 0x6E, 0x00, 0x01, 0x01, 0x01
 
 // Vector
 testCase([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6D, 0x7C, 0x01, 0x00, 0x00], #vector(#int), #vector([]));
-testCase([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6D, 0x7C, 0x01, 0x00, 0x02, 0x01, 0x02], #vector(#int), #vector([#int(1), #int(2)]));
+testCase(
+  [0x44, 0x49, 0x44, 0x4C, 0x01, 0x6D, 0x7C, 0x01, 0x00, 0x02, 0x01, 0x02],
+  #vector(#int),
+  #vector([#int(1), #int(2)]),
+);
 
 // Record
-testCase([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x01, 0x01, 0x7C, 0x01, 0x00, 0x2A], #record([{ tag = #hash(1); type_ = #int }]), #record([{ tag = #hash(1); value = #int(42) }]));
-testCase([0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x02, 0xD3, 0xE3, 0xAA, 0x02, 0x7E, 0x86, 0x8E, 0xB7, 0x02, 0x7C, 0x01, 0x00, 0x01, 0x2A], #record([{ tag = #name("foo"); type_ = #int }, { tag = #name("bar"); type_ = #bool }]), #record([{ tag = #name("foo"); value = #int(42) }, { tag = #name("bar"); value = #bool(true) }]));
+testCase(
+  [0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x01, 0x01, 0x7C, 0x01, 0x00, 0x2A],
+  #record([{ tag = #hash(1); type_ = #int }]),
+  #record([{ tag = #hash(1); value = #int(42) }]),
+);
+testCase(
+  [0x44, 0x49, 0x44, 0x4C, 0x01, 0x6C, 0x02, 0xD3, 0xE3, 0xAA, 0x02, 0x7E, 0x86, 0x8E, 0xB7, 0x02, 0x7C, 0x01, 0x00, 0x01, 0x2A],
+  #record([{ tag = #name("foo"); type_ = #int }, { tag = #name("bar"); type_ = #bool }]),
+  #record([{ tag = #name("foo"); value = #int(42) }, { tag = #name("bar"); value = #bool(true) }]),
+);
 
 testCase(
   [0x44, 0x49, 0x44, 0x4C, 0x04, 0x6E, 0x7C, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x00, 0x6E, 0x01, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x02, 0x01, 0x03, 0x01, 0x00],
@@ -350,10 +360,10 @@ testCase(
 testCase(
   [0x44, 0x49, 0x44, 0x4C, 0x02, 0x6E, 0x01, 0x6C, 0x01, 0xA7, 0x8A, 0x83, 0x99, 0x08, 0x00, 0x01, 0x01, 0x01, 0x00],
   #recursiveType({
-    id = "rec_1";
+    id = "μ1";
     type_ = #record([{
       tag = #name("selfRef");
-      type_ = #opt(#recursiveReference("rec_1"));
+      type_ = #opt(#recursiveReference("μ1"));
     }]);
   }),
   #record([{
