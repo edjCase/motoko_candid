@@ -1,7 +1,7 @@
 import Type "../src/Type";
-import Text "mo:core/Text";
+import Text "mo:core@1/Text";
 import { test } "mo:test";
-import Runtime "mo:core/Runtime";
+import Runtime "mo:core@1/Runtime";
 
 func testToText(
   expected : Text,

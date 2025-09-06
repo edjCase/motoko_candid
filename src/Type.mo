@@ -1,13 +1,13 @@
-import Array "mo:core/Array";
+import Array "mo:core@1/Array";
 import FuncMode "./FuncMode";
-import Int "mo:core/Int";
-import Nat32 "mo:core/Nat32";
-import Iter "mo:core/Iter";
-import Nat "mo:core/Nat";
-import Order "mo:core/Order";
+import Int "mo:core@1/Int";
+import Nat32 "mo:core@1/Nat32";
+import Iter "mo:core@1/Iter";
+import Nat "mo:core@1/Nat";
+import Order "mo:core@1/Order";
 import Tag "./Tag";
-import Text "mo:core/Text";
-import Char "mo:core/Char";
+import Text "mo:core@1/Text";
+import Char "mo:core@1/Char";
 import TypeCode "./TypeCode";
 import InternalTypes "InternalTypes";
 

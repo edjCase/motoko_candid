@@ -1,9 +1,9 @@
 import Value "../src/Value";
-import Text "mo:core/Text";
-import Principal "mo:core/Principal";
-import Bool "mo:core/Bool";
-import Runtime "mo:core/Runtime";
-import List "mo:core/List";
+import Text "mo:core@1/Text";
+import Principal "mo:core@1/Principal";
+import Bool "mo:core@1/Bool";
+import Runtime "mo:core@1/Runtime";
+import List "mo:core@1/List";
 import { test } "mo:test";
 
 let errors = List.empty<Text>();

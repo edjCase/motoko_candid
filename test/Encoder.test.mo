@@ -1,16 +1,16 @@
-import Array "mo:core/Array";
-import Char "mo:core/Char";
+import Array "mo:core@1/Array";
+import Char "mo:core@1/Char";
 import Decoder "../src/Decoder";
 import Encoder "../src/Encoder";
-import Bool "mo:core/Bool";
-import Nat "mo:core/Nat";
-import Nat8 "mo:core/Nat8";
-import Principal "mo:core/Principal";
+import Bool "mo:core@1/Bool";
+import Nat "mo:core@1/Nat";
+import Nat8 "mo:core@1/Nat8";
+import Principal "mo:core@1/Principal";
 import Type "../src/Type";
 import Value "../src/Value";
 import Arg "../src/Arg";
 import { test } "mo:test";
-import Runtime "mo:core/Runtime";
+import Runtime "mo:core@1/Runtime";
 
 let base : Nat8 = 0x10;
 

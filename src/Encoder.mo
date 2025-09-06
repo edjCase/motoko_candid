@@ -1,18 +1,18 @@
-import Array "mo:core/Array";
-import Blob "mo:core/Blob";
-import Buffer "mo:buffer";
-import FloatX "mo:xtended-numbers/FloatX";
-import Int "mo:core/Int";
-import IntX "mo:xtended-numbers/IntX";
-import Iter "mo:core/Iter";
-import Nat "mo:core/Nat";
-import Nat32 "mo:core/Nat32";
-import NatX "mo:xtended-numbers/NatX";
-import Principal "mo:core/Principal";
-import Text "mo:core/Text";
-import Map "mo:core/Map";
-import Runtime "mo:core/Runtime";
-import List "mo:core/List";
+import Array "mo:core@1/Array";
+import Blob "mo:core@1/Blob";
+import Buffer "mo:buffer@0";
+import FloatX "mo:xtended-numbers@2/FloatX";
+import Int "mo:core@1/Int";
+import IntX "mo:xtended-numbers@2/IntX";
+import Iter "mo:core@1/Iter";
+import Nat "mo:core@1/Nat";
+import Nat32 "mo:core@1/Nat32";
+import NatX "mo:xtended-numbers@2/NatX";
+import Principal "mo:core@1/Principal";
+import Text "mo:core@1/Text";
+import Map "mo:core@1/Map";
+import Runtime "mo:core@1/Runtime";
+import List "mo:core@1/List";
 import Value "./Value";
 import Type "./Type";
 import Tag "./Tag";
@@ -61,7 +61,7 @@ module {
   /// into the buffer according to the Candid specification. The buffer is modified in-place.
   ///
   /// ```motoko
-  /// import Buffer "mo:buffer";
+  /// import Buffer "mo:buffer@0";
   /// import Candid "mo:candid";
   ///
   /// let args : [Candid.Arg] = [
@@ -253,7 +253,7 @@ module {
           resolveArg(t, shallowTypes, recursiveTypeIndexMap, resolvedCompoundTypes);
         };
         // Compound
-        let t : ShallowCompoundType<ReferenceType> = switch (List.get(shallowTypes, typeIndex)) {
+        let t : ShallowCompoundType<ReferenceType> = switch (List.at(shallowTypes, typeIndex)) {
           case (#opt(o)) {
             let innerResolution = mapArg(o);
             #opt(innerResolution);

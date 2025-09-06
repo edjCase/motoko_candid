@@ -1,9 +1,9 @@
-import Order "mo:core/Order";
-import Array "mo:core/Array";
-import Blob "mo:core/Blob";
-import Text "mo:core/Text";
-import Nat32 "mo:core/Nat32";
-import NatX "mo:xtended-numbers/NatX";
+import Order "mo:core@1/Order";
+import Array "mo:core@1/Array";
+import Blob "mo:core@1/Blob";
+import Text "mo:core@1/Text";
+import Nat32 "mo:core@1/Nat32";
+import NatX "mo:xtended-numbers@2/NatX";
 
 module {
   public type Tag = {

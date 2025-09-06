@@ -1,8 +1,8 @@
 import Tag "./Tag";
 import FuncMode "./FuncMode";
-import Order "mo:core/Order";
-import Array "mo:core/Array";
-import Nat "mo:core/Nat";
+import Order "mo:core@1/Order";
+import Array "mo:core@1/Array";
+import Nat "mo:core@1/Nat";
 
 module {
 
