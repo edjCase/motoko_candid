@@ -31,20 +31,22 @@ Candid is an interface description language (IDL) developed by the DFINITY Found
 
 ## Supported Features
 
-- **Complete Candid type system support** including all primitive and compound types
-- **Type-safe value representation** with comprehensive type definitions
-- **Binary encoding/decoding** following the official Candid specification
-- **Streaming support** with buffer-based encoding for memory efficiency
-- **Full round-trip fidelity** between Motoko types and binary format
-- **Principal and service support** for Internet Computer integration
-- **Rich type system** including:
-  - All integer types (Int, Int8, Int16, Int32, Int64, Nat, Nat8, Nat16, Nat32, Nat64)
-  - Floating-point types (Float32, Float64)
-  - Text and Boolean types
-  - Optional and Vector types
-  - Record and Variant types
-  - Function and Service types
-  - Principal type
+-   **Complete Candid type system support** including all primitive and compound types
+-   **Type-safe value representation** with comprehensive type definitions
+-   **Binary encoding/decoding** following the official Candid specification
+-   **Text parsing and generation** for human-readable value representation
+-   **Streaming support** with buffer-based encoding for memory efficiency
+-   **Full round-trip fidelity** between Motoko types and binary format
+-   **Principal and service support** for Internet Computer integration
+-   **Comparison and hashing** utilities for types and values
+-   **Rich type system** including:
+    -   All integer types (Int, Int8, Int16, Int32, Int64, Nat, Nat8, Nat16, Nat32, Nat64)
+    -   Floating-point types (Float32, Float64)
+    -   Text and Boolean types
+    -   Optional and Vector types
+    -   Record and Variant types
+    -   Function and Service types
+    -   Principal type
 
 ## Quick Start
 
@@ -136,13 +138,49 @@ let args = [variantArg, optionalArg, vectorArg];
 let bytes = Candid.toBytes(args);
 ```
 
+### Example 4: Text Representation and Parsing
+
+```motoko
+import Candid "mo:candid";
+
+// Parse a Value from text
+let textValue = "record { age = 30; name = \"Alice\"; active = true }";
+let result = Candid.Value.fromText(textValue);
+
+switch (result) {
+  case (#ok(value)) {
+    // Convert back to text
+    let compactText = Candid.Value.toText(value);
+    // compactText is "record { age = 30; name = \"Alice\"; active = true }"
+
+    // Convert to indented text for better readability
+    let indentedText = Candid.Value.toTextIndented(value);
+    // indentedText is formatted with newlines and tabs
+
+    // Use advanced options with custom tag mapping
+    let options : Candid.Value.ToTextOptions = {
+      tagHashMapper = ?(func(h : Nat32) : ?Text {
+        // Map hash to custom field name if needed
+        null
+      });
+      toTextOverride = null;
+      indented = true
+    };
+    let customText = Candid.Value.toTextAdvanced(value, options);
+  };
+  case (#err(e)) {
+    // Handle parse error
+  };
+};
+```
+
 ## API Reference
 
 ### Main Functions
 
-- **`toBytes()`** - Converts Candid arguments to binary format
-- **`fromBytes()`** - Converts binary data back to Candid arguments
-- **`toBytesBuffer()`** - Streams encoding to a buffer
+-   **`toBytes()`** - Converts Candid arguments to binary format
+-   **`fromBytes()`** - Converts binary data back to Candid arguments
+-   **`toBytesBuffer()`** - Streams encoding to a buffer
 
 ### Types
 
@@ -229,45 +267,109 @@ public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg]);
 
 // Decode bytes to Candid arguments
 public func fromBytes(bytes : Iter.Iter<Nat8>) : ?[Arg];
+
+// Parse a Value from its text representation
+public func Value.fromText(text : Text) : Result.Result<Value, Text>;
+
+// Convert a Value to text (compact format)
+public func Value.toText(value : Value) : Text;
+
+// Convert a Value to text (indented format)
+public func Value.toTextIndented(value : Value) : Text;
+
+// Convert a Value to text with advanced options
+public func Value.toTextAdvanced(value : Value, options : ToTextOptions) : Text;
+
+// Convert a Type to text (compact format)
+public func Type.toText(type_ : Type) : Text;
+
+// Convert a Type to text (indented format)
+public func Type.toTextIndented(type_ : Type) : Text;
+
+// Convert a Type to text with advanced options
+public func Type.toTextAdvanced(type_ : Type, options : ToTextOptions) : Text;
+
+// Compare two Values for equality
+public func Value.equal(v1 : Value, v2 : Value) : Bool;
+
+// Compare two Values
+public func Value.compare(v1 : Value, v2 : Value) : Order.Order;
+
+// Compare two Types for equality
+public func Type.equal(t1 : Type, t2 : Type) : Bool;
+
+// Compare two Types
+public func Type.compare(t1 : Type, t2 : Type) : Order.Order;
+
+// Compute hash of a Type
+public func Type.hash(t : Type) : Nat32;
+
+// Compute hash of text (used for field names)
+public func Type.hashText(t : Text) : Nat32;
 ```
 
 ## Candid Type System
 
 This implementation supports the complete Candid type system:
 
+### Text Representation
+
+The library supports parsing and generating text representations of Candid values:
+
+-   **Parsing**: Convert text like `"record { age = 30; name = \"Alice\" }"` to a `Value`
+-   **Compact format**: Single-line text representation for all values
+-   **Indented format**: Multi-line formatted output for complex structures
+-   **Custom mapping**: Map hash-based field tags to meaningful names
+-   **Override support**: Custom text rendering for specific value types
+
+Supported text syntax includes:
+
+-   Primitive values: `42`, `true`, `"text"`, `null`
+-   Optional values: `opt 42`
+-   Vectors: `vec { 1; 2; 3 }`
+-   Records: `record { field1 = value1; field2 = value2 }`
+-   Variants: `variant { tag = value }`
+-   Tuples: `record { value1; value2 }` (fields numbered 0, 1, 2, ...)
+-   Principals: `principal "aaaaa-aa"`
+-   Services: `service "aaaaa-aa"`
+-   Functions: `func "aaaaa-aa".methodName`
+-   Comments: `// line comment` and `/* block comment */`
+-   Hex numbers: `0x1a2b`, `0x1a.2bp10`
+-   Type annotations: `(42 : nat)` (parsed but type info is discarded)
+
 ### Primitive Types
 
-- **Integers**: `int`, `int8`, `int16`, `int32`, `int64`
-- **Natural Numbers**: `nat`, `nat8`, `nat16`, `nat32`, `nat64`
-- **Floating Point**: `float32`, `float64`
-- **Text**: UTF-8 encoded strings
-- **Boolean**: `bool`
-- **Special**: `null`, `reserved`, `empty`
-- **Principal**: Internet Computer principal identifiers
+-   **Integers**: `int`, `int8`, `int16`, `int32`, `int64`
+-   **Natural Numbers**: `nat`, `nat8`, `nat16`, `nat32`, `nat64`
+-   **Floating Point**: `float32`, `float64`
+-   **Text**: UTF-8 encoded strings
+-   **Boolean**: `bool`
+-   **Special**: `null`, `reserved`, `empty`
+-   **Principal**: Internet Computer principal identifiers
 
 ### Compound Types
 
-- **Optional**: `opt T` - nullable values
-- **Vector**: `vec T` - homogeneous arrays
-- **Record**: `record { field1: T1; field2: T2 }` - structured data with named fields
-- **Variant**: `variant { option1: T1; option2: T2 }` - tagged union types
-- **Function**: `func (args) -> (results)` - function signatures
-- **Service**: Service type definitions with method signatures
+-   **Optional**: `opt T` - nullable values
+-   **Vector**: `vec T` - homogeneous arrays
+-   **Record**: `record { field1: T1; field2: T2 }` - structured data with named fields
+-   **Variant**: `variant { option1: T1; option2: T2 }` - tagged union types
+-   **Function**: `func (args) -> (results)` - function signatures
+-   **Service**: Service type definitions with method signatures
 
 ### Type Features
 
-- **Recursive Types**: Support for self-referential type definitions
-- **Field Tags**: Both hash-based and name-based field identification
-- **Type Safety**: Compile-time type checking with runtime validation
-- **Subtyping**: Compatible with Candid's structural subtyping rules
+-   **Recursive Types**: Support for self-referential type definitions
+-   **Field Tags**: Both hash-based and name-based field identification
+-   **Type Safety**: Compile-time type checking with runtime validation
+-   **Subtyping**: Compatible with Candid's structural subtyping rules
 
 ## Error Handling
 
 The library uses option types for error handling:
 
-- `toBytes()` returns `[Nat8]` (never fails with valid input)
-- `fromBytes()` returns `?[Arg]` (null on invalid input)
-- Buffer operations are infallible for valid inputs
+-   `toBytes()` returns `[Nat8]` (never fails with valid input)
+-   `fromBytes()` returns `?[Arg]` (null on invalid input)
+-   Buffer operations are infallible for valid inputs
 
 ## License
 

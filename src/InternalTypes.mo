@@ -34,10 +34,33 @@ module {
     #service : ServiceReferenceType<TReference>;
   };
 
+  /// Compares two objects by their tag field.
+  /// Returns the order comparison result of the two tags.
+  ///
+  /// ```motoko
+  /// let obj1 = { tag = #name("field1") };
+  /// let obj2 = { tag = #name("field2") };
+  /// let order = InternalTypes.tagObjCompare(obj1, obj2);
+  /// ```
   public func tagObjCompare(o1 : { tag : Tag.Tag }, o2 : { tag : Tag.Tag }) : Order.Order {
     Tag.compare(o1.tag, o2.tag);
   };
 
+  /// Compares two arrays using a custom comparison function.
+  /// If `reorder` is true, arrays are sorted before comparison for consistent results.
+  /// The comparison function receives a `shallow` flag indicating whether to do a shallow comparison.
+  ///
+  /// ```motoko
+  /// let arr1 = [1, 2, 3];
+  /// let arr2 = [3, 2, 1];
+  /// let order = InternalTypes.compareArrays(
+  ///   arr1,
+  ///   arr2,
+  ///   func(a, b, shallow) { Nat.compare(a, b) },
+  ///   true // reorder for consistent comparison
+  /// );
+  /// // order is #equal since arrays have same elements
+  /// ```
   public func compareArrays<T>(
     a1 : [T],
     a2 : [T],

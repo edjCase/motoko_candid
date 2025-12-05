@@ -464,6 +464,15 @@ module {
     };
   };
 
+  /// Computes a hash value for a Type.
+  /// This is used internally for type comparison and identification.
+  /// The hash is computed recursively for compound types.
+  ///
+  /// ```motoko
+  /// let type1 : Type = #opt(#nat);
+  /// let hash1 = Type.hash(type1);
+  /// // hash1 is a Nat32 value representing the hash of the type
+  /// ```
   public func hash(t : Type) : Nat32 {
     switch (t) {
       case (#opt(o)) {
@@ -574,6 +583,13 @@ module {
     seed ^ (value +% 0x9e3779b9 +% (seed << 6) +% (seed >> 2));
   };
 
+  /// Computes a hash value for a Text string.
+  /// This hash function is used for field name hashing in records and variants.
+  ///
+  /// ```motoko
+  /// let hash = Type.hashText("fieldName");
+  /// // hash is a Nat32 value representing the hash of the text
+  /// ```
   public func hashText(t : Text) : Nat32 {
     var x : Nat32 = 5381;
     for (char in t.chars()) {

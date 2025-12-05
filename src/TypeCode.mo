@@ -1,3 +1,6 @@
+/// Type codes used in the Candid binary format.
+/// Each primitive and compound type has a unique negative integer code.
+/// These are used internally for binary encoding/decoding.
 module {
     public let null_ = -1;
     public let bool = -2;
