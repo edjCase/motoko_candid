@@ -23,4 +23,19 @@ module {
   public func toText(arg : Arg) : Text {
     Value.toText(arg.value);
   };
+
+  /// Creates an Arg from a Value by inferring its implicit type.
+  /// The type is automatically determined from the value's structure.
+  ///
+  /// ```motoko
+  /// let value : Value.Value = #nat(42);
+  /// let arg = Arg.fromValue(value);
+  /// // arg is { value = #nat(42); type_ = #nat }
+  /// ```
+  public func fromValue(value : Value.Value) : Arg {
+    {
+      value = value;
+      type_ = Value.toImplicitType(value);
+    };
+  };
 };

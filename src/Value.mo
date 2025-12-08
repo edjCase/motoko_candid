@@ -20,6 +20,7 @@ import Text "mo:core@1/Text";
 import Result "mo:core@1/Result";
 import Array "mo:core@1/Array";
 import Char "mo:core@1/Char";
+import Type "./Type";
 
 module {
   type Tag = Tag.Tag;
@@ -206,6 +207,75 @@ module {
         let orderB = getVariantOrder(b);
         Nat.compare(orderA, orderB);
       };
+    };
+  };
+
+  /// Converts a Value to its implicit minimum Type representation.
+  /// Returns the most specific type that can represent the given value.
+  ///
+  /// ```motoko
+  /// let value : Value = #nat(42);
+  /// let type_ = Value.toImplicitType(value);
+  /// // type_ is #nat
+  /// ```
+  public func toImplicitType(value : Value) : Type.Type {
+    switch (value) {
+      case (#int(_)) #int;
+      case (#int8(_)) #int8;
+      case (#int16(_)) #int16;
+      case (#int32(_)) #int32;
+      case (#int64(_)) #int64;
+      case (#nat(_)) #nat;
+      case (#nat8(_)) #nat8;
+      case (#nat16(_)) #nat16;
+      case (#nat32(_)) #nat32;
+      case (#nat64(_)) #nat64;
+      case (#bool(_)) #bool;
+      case (#float32(_)) #float32;
+      case (#float64(_)) #float64;
+      case (#text(_)) #text;
+      case (#null_) #null_;
+      case (#reserved) #reserved;
+      case (#empty) #empty;
+      case (#principal(_)) #principal;
+      case (#opt(innerValue)) #opt(toImplicitType(innerValue));
+      case (#vector(values)) {
+        if (values.size() == 0) {
+          // Empty vector defaults to reserved type (super type of all other types)
+          #vector(#reserved);
+        } else {
+          // Use the type of the first element as the vector element type
+          let elementType = toImplicitType(values[0]);
+          #vector(elementType);
+        };
+      };
+      case (#record(fields)) {
+        let fieldTypes : [Type.RecordFieldType] = Array.map<RecordFieldValue, Type.RecordFieldType>(
+          fields,
+          func(field : RecordFieldValue) : Type.RecordFieldType {
+            {
+              tag = field.tag;
+              type_ = toImplicitType(field.value);
+            };
+          },
+        );
+        #record(fieldTypes);
+      };
+      case (#variant(field)) {
+        let optionType : Type.VariantOptionType = {
+          tag = field.tag;
+          type_ = toImplicitType(field.value);
+        };
+        #variant([optionType]);
+      };
+      case (#func_(_)) #func_({
+        modes = [];
+        argTypes = [];
+        returnTypes = [];
+      });
+      case (#service(_)) #service({
+        methods = [];
+      });
     };
   };
 

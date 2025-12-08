@@ -35,6 +35,7 @@ Candid is an interface description language (IDL) developed by the DFINITY Found
 -   **Type-safe value representation** with comprehensive type definitions
 -   **Binary encoding/decoding** following the official Candid specification
 -   **Text parsing and generation** for human-readable value representation
+-   **Automatic type inference** to derive minimal types from values
 -   **Streaming support** with buffer-based encoding for memory efficiency
 -   **Full round-trip fidelity** between Motoko types and binary format
 -   **Principal and service support** for Internet Computer integration
@@ -83,7 +84,7 @@ let ?decodedArgs = Candid.fromBytes(bytes.vals()) else Runtime.trap("Failed to d
 
 ```motoko
 import Candid "mo:candid";
-import Buffer "mo:buffer";
+import List "mo:core/List";
 
 let args : [Candid.Arg] = [
     {
@@ -138,27 +139,48 @@ let args = [variantArg, optionalArg, vectorArg];
 let bytes = Candid.toBytes(args);
 ```
 
-### Example 4: Text Representation and Parsing
+### Example 4: Creating Args from Values
 
 ```motoko
-import Candid "mo:candid";
+import CandidArg "mo:candid/Arg";
+import CandidValue "mo:candid/Value";
+
+// Create a value
+let value : CandidValue.Value = #record([
+    { tag = #name("name"); value = #text("Bob") },
+    { tag = #name("balance"); value = #nat(1000) }
+]);
+
+// Automatically infer the type from the value
+let arg = CandidArg.fromValue(value);
+// arg.type_ is automatically set to the minimal implicit type
+
+// Or manually get the implicit type
+let implicitType = CandidValue.toImplicitType(value);
+// implicitType is #record([...]) with inferred field types
+```
+
+### Example 5: Text Representation and Parsing
+
+```motoko
+import CandidValue "mo:candid/Value";
 
 // Parse a Value from text
 let textValue = "record { age = 30; name = \"Alice\"; active = true }";
-let result = Candid.Value.fromText(textValue);
+let result = CandidValue.fromText(textValue);
 
 switch (result) {
   case (#ok(value)) {
     // Convert back to text
-    let compactText = Candid.Value.toText(value);
+    let compactText = CandidValue.toText(value);
     // compactText is "record { age = 30; name = \"Alice\"; active = true }"
 
     // Convert to indented text for better readability
-    let indentedText = Candid.Value.toTextIndented(value);
+    let indentedText = CandidValue.toTextIndented(value);
     // indentedText is formatted with newlines and tabs
 
     // Use advanced options with custom tag mapping
-    let options : Candid.Value.ToTextOptions = {
+    let options : CandidValue.ToTextOptions = {
       tagHashMapper = ?(func(h : Nat32) : ?Text {
         // Map hash to custom field name if needed
         null
@@ -166,7 +188,7 @@ switch (result) {
       toTextOverride = null;
       indented = true
     };
-    let customText = Candid.Value.toTextAdvanced(value, options);
+    let customText = CandidValue.toTextAdvanced(value, options);
   };
   case (#err(e)) {
     // Handle parse error
@@ -258,6 +280,8 @@ public type Tag = {
 
 ### Functions
 
+#### Main Module
+
 ```motoko
 // Encode Candid arguments to bytes
 public func toBytes(args : [Arg]) : [Nat8];
@@ -267,45 +291,66 @@ public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg]);
 
 // Decode bytes to Candid arguments
 public func fromBytes(bytes : Iter.Iter<Nat8>) : ?[Arg];
+```
 
+#### Value Module
+
+```motoko
 // Parse a Value from its text representation
-public func Value.fromText(text : Text) : Result.Result<Value, Text>;
+public func fromText(text : Text) : Result.Result<Value, Text>;
 
 // Convert a Value to text (compact format)
-public func Value.toText(value : Value) : Text;
+public func toText(value : Value) : Text;
 
 // Convert a Value to text (indented format)
-public func Value.toTextIndented(value : Value) : Text;
+public func toTextIndented(value : Value) : Text;
 
 // Convert a Value to text with advanced options
-public func Value.toTextAdvanced(value : Value, options : ToTextOptions) : Text;
+public func toTextAdvanced(value : Value, options : ToTextOptions) : Text;
 
-// Convert a Type to text (compact format)
-public func Type.toText(type_ : Type) : Text;
-
-// Convert a Type to text (indented format)
-public func Type.toTextIndented(type_ : Type) : Text;
-
-// Convert a Type to text with advanced options
-public func Type.toTextAdvanced(type_ : Type, options : ToTextOptions) : Text;
+// Get the implicit minimum type for a Value
+public func toImplicitType(value : Value) : Type;
 
 // Compare two Values for equality
-public func Value.equal(v1 : Value, v2 : Value) : Bool;
+public func equal(v1 : Value, v2 : Value) : Bool;
 
 // Compare two Values
-public func Value.compare(v1 : Value, v2 : Value) : Order.Order;
+public func compare(v1 : Value, v2 : Value) : Order.Order;
+```
+
+#### Type Module
+
+```motoko
+// Convert a Type to text (compact format)
+public func toText(type_ : Type) : Text;
+
+// Convert a Type to text (indented format)
+public func toTextIndented(type_ : Type) : Text;
+
+// Convert a Type to text with advanced options
+public func toTextAdvanced(type_ : Type, options : ToTextOptions) : Text;
 
 // Compare two Types for equality
-public func Type.equal(t1 : Type, t2 : Type) : Bool;
+public func equal(t1 : Type, t2 : Type) : Bool;
 
 // Compare two Types
-public func Type.compare(t1 : Type, t2 : Type) : Order.Order;
+public func compare(t1 : Type, t2 : Type) : Order.Order;
 
 // Compute hash of a Type
-public func Type.hash(t : Type) : Nat32;
+public func hash(t : Type) : Nat32;
 
 // Compute hash of text (used for field names)
-public func Type.hashText(t : Text) : Nat32;
+public func hashText(t : Text) : Nat32;
+```
+
+#### Arg Module
+
+```motoko
+// Create an Arg from a Value by inferring its implicit type
+public func fromValue(value : Value) : Arg;
+
+// Convert an Arg to its text representation
+public func toText(arg : Arg) : Text;
 ```
 
 ## Candid Type System
