@@ -18,7 +18,6 @@ import Type "./Type";
 import Tag "./Tag";
 import InternalTypes "./InternalTypes";
 import TypeCode "./TypeCode";
-import Arg "./Arg";
 
 module {
 
@@ -49,7 +48,7 @@ module {
   /// let bytes : [Nat8] = Candid.toBytes(args);
   /// // bytes now contains the Candid-encoded representation of the arguments
   /// ```
-  public func toBytes(args : [Arg.Arg]) : [Nat8] {
+  public func toBytes(args : [InternalTypes.Arg]) : [Nat8] {
     let buffer = List.empty<Nat8>();
     toBytesBuffer(Buffer.fromList(buffer), args);
     List.toArray(buffer);
@@ -74,7 +73,7 @@ module {
   /// Candid.toBytesBuffer(buffer, args);
   /// // list now contains the Candid-encoded representation of the arguments
   /// ```
-  public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, args : [Arg.Arg]) {
+  public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, args : [InternalTypes.Arg]) {
     // "DIDL" prefix
     buffer.write(0x44);
     buffer.write(0x49);

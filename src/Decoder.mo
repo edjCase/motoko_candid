@@ -16,7 +16,6 @@ import Type "./Type";
 import Tag "./Tag";
 import InternalTypes "./InternalTypes";
 import FuncMode "./FuncMode";
-import Arg "./Arg";
 
 module {
 
@@ -32,7 +31,7 @@ module {
   ///
   /// let ?args = Decoder.fromBytes(bytes) else return #err("Failed to decode Candid data");
   /// ```
-  public func fromBytes(bytes : Iter.Iter<Nat8>) : ?[Arg.Arg] {
+  public func fromBytes(bytes : Iter.Iter<Nat8>) : ?[InternalTypes.Arg] {
     do ? {
       let prefix1 : Nat8 = bytes.next()!;
       let prefix2 : Nat8 = bytes.next()!;
@@ -47,7 +46,7 @@ module {
       let types : [Type.Type] = buildTypes(compoundTypes, argTypes)!;
       let values : [Value.Value] = decodeValues(bytes, types)!;
       var i = 0;
-      let valueTypes = List.empty<Arg.Arg>();
+      let valueTypes = List.empty<InternalTypes.Arg>();
       for (t in Iter.fromArray(types)) {
         let v = values[i];
         List.add(valueTypes, { value = v; type_ = t });

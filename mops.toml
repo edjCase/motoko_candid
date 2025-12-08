@@ -1,6 +1,6 @@
 [package]
 name = "candid"
-version = "2.4.0"
+version = "2.4.1"
 description = "A Candid library for encoding and decoding candid bytes"
 repository = "https://github.com/edjcase/motoko_candid"
 keywords = ["candid", "encode", "decode", "idl"]

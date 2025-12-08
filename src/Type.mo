@@ -12,56 +12,19 @@ import TypeCode "./TypeCode";
 import InternalTypes "InternalTypes";
 
 module {
-  public type FuncType = {
-    modes : [FuncMode.FuncMode];
-    argTypes : [Type];
-    returnTypes : [Type];
-  };
+  public type FuncType = InternalTypes.FuncType;
 
-  public type RecordFieldType = {
-    tag : Tag.Tag;
-    type_ : Type;
-  };
+  public type RecordFieldType = InternalTypes.RecordFieldType;
 
-  public type VariantOptionType = RecordFieldType;
+  public type VariantOptionType = InternalTypes.VariantOptionType;
 
-  public type ServiceType = {
-    methods : [(Text, FuncType)];
-  };
+  public type ServiceType = InternalTypes.ServiceType;
 
-  public type PrimitiveType = {
-    #int;
-    #int8;
-    #int16;
-    #int32;
-    #int64;
-    #nat;
-    #nat8;
-    #nat16;
-    #nat32;
-    #nat64;
-    #null_;
-    #bool;
-    #float32;
-    #float64;
-    #text;
-    #reserved;
-    #empty;
-    #principal;
-  };
+  public type PrimitiveType = InternalTypes.PrimitiveType;
 
-  public type CompoundType = {
-    #opt : Type;
-    #vector : Type;
-    #record : [RecordFieldType];
-    #variant : [VariantOptionType];
-    #func_ : FuncType;
-    #service : ServiceType;
-    #recursiveType : { id : Text; type_ : CompoundType };
-    #recursiveReference : Text;
-  };
+  public type CompoundType = InternalTypes.CompoundType;
 
-  public type Type = CompoundType or PrimitiveType;
+  public type Type = InternalTypes.Type;
 
   public type TagHashMapper = (tagHash : Nat32) -> ?Text;
   public type ToTextOverride = (value : Type) -> ?Text;

@@ -25,44 +25,13 @@ import Type "./Type";
 module {
   type Tag = Tag.Tag;
 
-  public type RecordFieldValue = {
-    tag : Tag;
-    value : Value;
-  };
+  public type RecordFieldValue = InternalTypes.RecordFieldValue;
 
-  public type Func = {
-    service : Principal;
-    method : Text;
-  };
+  public type Func = InternalTypes.Func;
 
-  public type VariantOptionValue = RecordFieldValue;
+  public type VariantOptionValue = InternalTypes.VariantOptionValue;
 
-  public type Value = {
-    #int : Int;
-    #int8 : Int8;
-    #int16 : Int16;
-    #int32 : Int32;
-    #int64 : Int64;
-    #nat : Nat;
-    #nat8 : Nat8;
-    #nat16 : Nat16;
-    #nat32 : Nat32;
-    #nat64 : Nat64;
-    #bool : Bool;
-    #float32 : Float;
-    #float64 : Float;
-    #text : Text;
-    #null_;
-    #reserved;
-    #empty;
-    #opt : Value;
-    #vector : [Value];
-    #record : [RecordFieldValue];
-    #variant : VariantOptionValue;
-    #func_ : Func;
-    #service : Principal;
-    #principal : Principal;
-  };
+  public type Value = InternalTypes.Value;
   public type TagHashMapper = (tagHash : Nat32) -> ?Text;
   public type ToTextOverride = (value : Value) -> ?Text;
 

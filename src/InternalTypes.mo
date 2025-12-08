@@ -5,6 +5,100 @@ import Array "mo:core@1/Array";
 import Nat "mo:core@1/Nat";
 
 module {
+  public type Arg = {
+    value : Value;
+    type_ : Type;
+  };
+
+  public type Value = {
+    #int : Int;
+    #int8 : Int8;
+    #int16 : Int16;
+    #int32 : Int32;
+    #int64 : Int64;
+    #nat : Nat;
+    #nat8 : Nat8;
+    #nat16 : Nat16;
+    #nat32 : Nat32;
+    #nat64 : Nat64;
+    #bool : Bool;
+    #float32 : Float;
+    #float64 : Float;
+    #text : Text;
+    #null_;
+    #reserved;
+    #empty;
+    #opt : Value;
+    #vector : [Value];
+    #record : [RecordFieldValue];
+    #variant : VariantOptionValue;
+    #func_ : Func;
+    #service : Principal;
+    #principal : Principal;
+  };
+
+  public type RecordFieldValue = {
+    tag : Tag.Tag;
+    value : Value;
+  };
+
+  public type Func = {
+    service : Principal;
+    method : Text;
+  };
+
+  public type VariantOptionValue = RecordFieldValue;
+
+  public type PrimitiveType = {
+    #int;
+    #int8;
+    #int16;
+    #int32;
+    #int64;
+    #nat;
+    #nat8;
+    #nat16;
+    #nat32;
+    #nat64;
+    #null_;
+    #bool;
+    #float32;
+    #float64;
+    #text;
+    #reserved;
+    #empty;
+    #principal;
+  };
+
+  public type CompoundType = {
+    #opt : Type;
+    #vector : Type;
+    #record : [RecordFieldType];
+    #variant : [VariantOptionType];
+    #func_ : FuncType;
+    #service : ServiceType;
+    #recursiveType : { id : Text; type_ : CompoundType };
+    #recursiveReference : Text;
+  };
+
+  public type FuncType = {
+    modes : [FuncMode.FuncMode];
+    argTypes : [Type];
+    returnTypes : [Type];
+  };
+
+  public type RecordFieldType = {
+    tag : Tag.Tag;
+    type_ : Type;
+  };
+
+  public type VariantOptionType = RecordFieldType;
+
+  public type ServiceType = {
+    methods : [(Text, FuncType)];
+  };
+
+  public type Type = CompoundType or PrimitiveType;
 
   public type ReferenceType = Int;
 

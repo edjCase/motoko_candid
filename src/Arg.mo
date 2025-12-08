@@ -1,10 +1,12 @@
 import Value "./Value";
-import Type "./Type";
 import Result "mo:core@1/Result";
 import Array "mo:core@1/Array";
 import Text "mo:core@1/Text";
 import Char "mo:core@1/Char";
 import Nat "mo:core@1/Nat";
+import Encoder "./Encoder";
+import Decoder "./Decoder";
+import InternalTypes "./InternalTypes";
 
 module {
   /// Represents an argument with a value and its corresponding type.
@@ -12,10 +14,13 @@ module {
   /// ```motoko
   /// let arg : Arg = { value = #nat(42); type_ = #nat };
   /// ```
-  public type Arg = {
-    value : Value.Value;
-    type_ : Type.Type;
-  };
+  public type Arg = InternalTypes.Arg;
+
+  public let toBytes = Encoder.toBytes;
+
+  public let toBytesBuffer = Encoder.toBytesBuffer;
+
+  public let fromBytes = Decoder.fromBytes;
 
   /// Converts an Arg to its text representation.
   /// This function returns the text representation of the Arg's value.
