@@ -165,12 +165,15 @@ let implicitType = CandidValue.toImplicitType(value);
 ```motoko
 import CandidValue "mo:candid/Value";
 
-// Parse a Value from text
+// Parse a Value from text (returns value and its type)
 let textValue = "record { age = 30; name = \"Alice\"; active = true }";
 let result = CandidValue.fromText(textValue);
 
 switch (result) {
-  case (#ok(value)) {
+  case (#ok((value, type_))) {
+    // value is the parsed Value
+    // type_ is the inferred Type for the value
+
     // Convert back to text
     let compactText = CandidValue.toText(value);
     // compactText is "record { age = 30; name = \"Alice\"; active = true }"
@@ -193,6 +196,42 @@ switch (result) {
   case (#err(e)) {
     // Handle parse error
   };
+};
+```
+
+### Example 6: Parsing Argument Lists
+
+```motoko
+import CandidArg "mo:candid/Arg";
+import CandidValue "mo:candid/Value";
+import Candid "mo:candid";
+
+// Parse an argument list from text
+let argText = "(42, \"hello\", true)";
+let result = CandidArg.fromText(argText);
+
+switch (result) {
+  case (#ok(args)) {
+    // args is [Arg] with parsed values and inferred types
+    // args[0].value is #nat(42), args[0].type_ is #nat
+    // args[1].value is #text("hello"), args[1].type_ is #text
+    // args[2].value is #bool(true), args[2].type_ is #bool
+
+    // You can now use these args for encoding
+    let bytes = Candid.toBytes(args);
+  };
+  case (#err(e)) {
+    // Handle parse error
+  };
+};
+
+// Argument lists support trailing commas
+let withTrailingComma = "(1, 2, 3,)";
+switch (CandidArg.fromText(withTrailingComma)) {
+  case (#ok(args)) {
+    // Successfully parses as [#nat(1), #nat(2), #nat(3)]
+  };
+  case (#err(e)) { /* error */ };
 };
 ```
 
@@ -297,7 +336,8 @@ public func fromBytes(bytes : Iter.Iter<Nat8>) : ?[Arg];
 
 ```motoko
 // Parse a Value from its text representation
-public func fromText(text : Text) : Result.Result<Value, Text>;
+// Returns both the parsed value and its inferred type
+public func fromText(text : Text) : Result.Result<(Value, Type), Text>;
 
 // Convert a Value to text (compact format)
 public func toText(value : Value) : Text;
@@ -346,6 +386,9 @@ public func hashText(t : Text) : Nat32;
 #### Arg Module
 
 ```motoko
+// Parse argument list from text
+public func fromText(text : Text) : Result.Result<[Arg], Text>;
+
 // Create an Arg from a Value by inferring its implicit type
 public func fromValue(value : Value) : Arg;
 

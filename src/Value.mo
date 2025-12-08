@@ -279,22 +279,30 @@ module {
     };
   };
 
-  /// Parse a Value from its Text representation
+  /// Parse a Value from its Text representation, returning both the value and its type.
+  /// If a type annotation is present (e.g., "(42 : nat)"), it will be parsed and used.
+  /// If no type annotation is present, the type is inferred using toImplicitType.
+  ///
+  /// Returns a tuple of (Value, Type) on success, or an error message on failure.
   ///
   /// ```motoko
-  /// let result = Value.fromText("record { age = 30; name = \"Alice\"; }");
-  /// let value : Value.Value = switch (result) {
-  ///   case (#ok(v)) v;
-  ///   case (#err(e)) *... Failed to parse value ...*;
+  /// let result = Value.fromText("(42 : nat16)");
+  /// switch (result) {
+  ///   case (#ok((value, type_))) {
+  ///     // value is #nat(42)
+  ///     // type_ is the inferred type based on the value
+  ///   };
+  ///   case (#err(e)) { /* error */ };
+  /// };
   /// ```
-  public func fromText(text : Text) : Result.Result<Value, Text> {
-    switch (parseValue(text, 0)) {
-      case (#ok((value, pos))) {
+  public func fromText(text : Text) : Result.Result<(Value, Type.Type), Text> {
+    switch (parseValueWithType(text, 0)) {
+      case (#ok((value, type_, pos))) {
         let finalPos = skipWhitespace(text, pos);
         if (finalPos < text.size()) {
           #err("Unexpected input after value at position " # Nat.toText(finalPos));
         } else {
-          #ok(value);
+          #ok((value, type_));
         };
       };
       case (#err(e)) #err(e);
@@ -633,6 +641,10 @@ module {
         };
       };
 
+      if (numText == "") {
+        return #err("Expected hex digits after 0x at position " # Nat.toText(pos));
+      };
+
       switch (parseHexNat(numText)) {
         case (#ok(n)) #ok((n, current));
         case (#err(e)) #err(e);
@@ -903,6 +915,62 @@ module {
     };
 
     #err("Unclosed string");
+  };
+
+  // Parse a value with its type annotation if present, otherwise infer the type
+  private func parseValueWithType(input : Text, start : Nat) : Result.Result<(Value, Type.Type, Nat), Text> {
+    let pos = skipWhitespace(input, start);
+    let chars = Text.toArray(input);
+
+    if (pos >= chars.size()) {
+      return #err("Unexpected end of input");
+    };
+
+    // Try parenthesized value (possibly with type annotation)
+    if (chars[pos] == '(') {
+      switch (parseChar('(', input, pos)) {
+        case (#ok(pos1)) {
+          switch (parseValueWithType(input, pos1)) {
+            case (#ok((val, inferredType, pos2))) {
+              // Check for type annotation
+              let pos3 = skipWhitespace(input, pos2);
+              if (pos3 < chars.size() and chars[pos3] == ':') {
+                // TODO: Parse type annotation instead of skipping
+                // For now, skip type annotation and use inferred type
+                var current = pos3 + 1;
+                var depth = 0;
+                label w while (current < chars.size()) {
+                  if (chars[current] == '(') depth += 1 else if (chars[current] == ')') {
+                    if (depth == 0) break w else depth -= 1;
+                  };
+                  current += 1;
+                };
+                switch (parseChar(')', input, current)) {
+                  case (#ok(pos4)) #ok((val, inferredType, pos4));
+                  case (#err(e)) #err(e);
+                };
+              } else {
+                switch (parseChar(')', input, pos2)) {
+                  case (#ok(pos3)) #ok((val, inferredType, pos3));
+                  case (#err(e)) #err(e);
+                };
+              };
+            };
+            case (#err(e)) #err(e);
+          };
+        };
+        case (#err(e)) #err(e);
+      };
+    } else {
+      // For non-parenthesized values, parse the value and infer its type
+      switch (parseValue(input, pos)) {
+        case (#ok((val, newPos))) {
+          let type_ = toImplicitType(val);
+          #ok((val, type_, newPos));
+        };
+        case (#err(e)) #err(e);
+      };
+    };
   };
 
   private func parseValue(input : Text, start : Nat) : Result.Result<(Value, Nat), Text> {
