@@ -584,6 +584,36 @@ module {
     #ok(nextPos);
   };
 
+  // Parse an unquoted identifier (field name)
+  private func parseIdentifier(input : Text, start : Nat) : Result.Result<(Text, Nat), Text> {
+    let pos = skipWhitespace(input, start);
+    let chars = Text.toArray(input);
+
+    if (pos >= chars.size()) {
+      return #err("Expected identifier");
+    };
+
+    let firstChar = chars[pos];
+    if (not (Char.isAlphabetic(firstChar) or firstChar == '_')) {
+      return #err("Expected identifier at position " # Nat.toText(pos));
+    };
+
+    var current = pos;
+    var identifier = "";
+
+    label l while (current < chars.size()) {
+      let c = chars[current];
+      if (Char.isAlphabetic(c) or Char.isDigit(c) or c == '_') {
+        identifier #= Char.toText(c);
+        current += 1;
+      } else {
+        break l;
+      };
+    };
+
+    #ok((identifier, current));
+  };
+
   private func parseNat(input : Text, start : Nat) : Result.Result<(Nat, Nat), Text> {
     let pos = skipWhitespace(input, start);
     let chars = Text.toArray(input);
@@ -1176,8 +1206,25 @@ module {
 
               // Try to parse field id (nat or name) or just value (for tuple)
               let fieldResult = if (pos3 < chars.size() and chars[pos3] == '\"') {
-                // Named field
+                // Quoted field name
                 switch (parseText(input, pos3)) {
+                  case (#ok((name, pos4))) {
+                    let tag = #name(name) : Tag;
+                    switch (parseChar('=', input, pos4)) {
+                      case (#ok(pos5)) {
+                        switch (parseValue(input, pos5)) {
+                          case (#ok((val, pos6))) #ok((tag, val, pos6));
+                          case (#err(e)) #err(e);
+                        };
+                      };
+                      case (#err(e)) #err(e);
+                    };
+                  };
+                  case (#err(e)) #err(e);
+                };
+              } else if (pos3 < chars.size() and (Char.isAlphabetic(chars[pos3]) or chars[pos3] == '_')) {
+                // Unquoted field name (identifier)
+                switch (parseIdentifier(input, pos3)) {
                   case (#ok((name, pos4))) {
                     let tag = #name(name) : Tag;
                     switch (parseChar('=', input, pos4)) {
@@ -1273,11 +1320,19 @@ module {
 
             // Parse tag (name or nat)
             let tagResult = if (pos3 < chars.size() and chars[pos3] == '\"') {
+              // Quoted tag name
               switch (parseText(input, pos3)) {
                 case (#ok((name, pos4))) #ok((#name(name) : Tag, pos4));
                 case (#err(e)) #err(e);
               };
+            } else if (pos3 < chars.size() and (Char.isAlphabetic(chars[pos3]) or chars[pos3] == '_')) {
+              // Unquoted tag name (identifier)
+              switch (parseIdentifier(input, pos3)) {
+                case (#ok((name, pos4))) #ok((#name(name) : Tag, pos4));
+                case (#err(e)) #err(e);
+              };
             } else {
+              // Numeric tag
               switch (parseNat(input, pos3)) {
                 case (#ok((id, pos4))) #ok((#hash(Nat32.fromNat(id)), pos4));
                 case (#err(e)) #err(e);

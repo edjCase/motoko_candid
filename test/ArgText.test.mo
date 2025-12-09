@@ -41,6 +41,7 @@ test(
             ("(-123)", #int(-123)),
             ("(3.14)", #float64(3.14)),
             ("(principal \"aaaaa-aa\")", #principal(Principal.fromText("aaaaa-aa"))),
+            ("( record { owner = null } )", #record([{ tag = #name("owner"); value = #null_ }])),
         ];
 
         for ((input, expectedValue) in testCases.vals()) {
